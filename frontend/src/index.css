@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #12140f;
-  --color-surface: #1a1d16;
-  --color-surface-elevated: #22261c;
-  --color-border: #2c3024;
-  --color-primary: #6b9b6e;
-  --color-primary-strong: #4d7a52;
-  --color-accent-warn: #c9a227;
-  --color-danger: #b5453f;
-  --color-text-primary: #eae7dd;
-  --color-text-secondary: #8f9285;
+  --color-background: #0a0c08;
+  --color-surface: #111310;
+  --color-surface-elevated: #1a1e18;
+  --color-border: #252a22;
+  --color-primary: #5cb870;
+  --color-primary-strong: #4a9e5e;
+  --color-accent-warn: #d4a843;
+  --color-danger: #d44c44;
+  --color-text-primary: #f0ede4;
+  --color-text-secondary: #7a7e72;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
 
-  --radius-lg: 8px;
-  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
 }
 
 html,
@@ -31,6 +32,7 @@ body {
   font-family: var(--font-sans);
   font-feature-settings: "tnum";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Tabular figures for all numbers so columns align. */
@@ -39,9 +41,13 @@ body {
 }
 
 .card {
-  background-color: var(--color-surface);
+  background: linear-gradient(145deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
   border: 1px solid var(--color-border);
-  border-radius: var(--root-lg);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .btn {
@@ -49,60 +55,129 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: var(--root-md);
+  border-radius: var(--radius-md);
   font-weight: 500;
-  transition: background-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out;
+  transition: all 180ms ease-out;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
-  color: #12140f;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-strong) 100%);
+  color: #0a0c08;
+  box-shadow: 0 2px 8px rgba(92, 184, 112, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-primary-strong);
-  color: #eae7dd;
+  background: linear-gradient(135deg, #6cc880 0%, var(--color-primary) 100%);
+  box-shadow: 0 4px 16px rgba(92, 184, 112, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(92, 184, 112, 0.2);
 }
 
 .btn-outline {
   border: 1px solid var(--color-border);
-  background-color: transparent;
+  background: rgba(255, 255, 255, 0.02);
   color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .btn-outline:hover:not(:disabled) {
   border-color: var(--color-primary);
+  background: rgba(92, 184, 112, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(92, 184, 112, 0.1);
+}
+
+.btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
 }
 
 .input {
-  border-radius: var(--root-md);
-  background-color: var(--color-surface-elevated);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   color: var(--color-text-primary);
   width: 100%;
+  transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 .input:focus {
   outline: none;
   border-color: var(--color-primary);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 3px rgba(92, 184, 112, 0.15);
 }
 .input.input-error {
   border-color: var(--color-danger);
 }
 
 .label {
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
-/* Reown AppKit modal centering.
-   The library appends its overlay to the body and can render partly off-screen when the
-   page has transformed ancestors. Force the modal to fill and center the viewport. */
+/* Bottom nav for mobile */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: rgba(10, 12, 8, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--color-border);
+    padding: 0.5rem 0;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    justify-content: space-around;
+    align-items: center;
+  }
+  .bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.6rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: color 150ms ease-out;
+    min-width: 3rem;
+  }
+  .bottom-nav a.active,
+  .bottom-nav a:hover {
+    color: var(--color-primary);
+  }
+  .bottom-nav svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Add bottom padding to main content so it's not hidden behind the nav */
+  main {
+    padding-bottom: 5rem !important;
+  }
+}
+
+/* Reown AppKit modal centering. */
 w3m-modal,
 [data-w3m-modal],
 .w3m-overlay {
@@ -120,4 +195,33 @@ w3m-modal .w3m-modal-card,
   margin: 0 !important;
   max-height: 92vh !important;
   overflow-y: auto !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Selection */
+::selection {
+  background: rgba(92, 184, 112, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* Smooth scrolling */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

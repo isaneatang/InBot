@@ -82,11 +82,19 @@ export default function InvoiceDetail() {
     } else if (functionName === "invest" && args?.[1]) {
       await c.ensureApproval(args[1]);
     }
-    await c.writeContractAsync({ address: INVOICE_FACTORY_ADDRESS, abi: INVOICE_ABI, functionName, args });
+    // Small delay to let the wallet/RPC sync after approval
+    await new Promise((r) => setTimeout(r, 300));
+    // Use retry-enabled write to handle gas estimation transient failures
+    return c.writeContractWithRetry({ address: INVOICE_FACTORY_ADDRESS, abi: INVOICE_ABI, functionName, args });
   };
 
   if (invoiceQuery.isLoading || !inv) {
-    return <div className="card p-6"><div className="h-6 w-1/3 mb-4 rounded bg-surface-elevated animate-pulse" /><div className="h-4 w-2/3 rounded bg-surface-elevated animate-pulse" /></div>;
+    return (
+      <div className="card p-6">
+        <div className="h-6 w-1/3 mb-4 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} />
+        <div className="h-4 w-2/3 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} />
+      </div>
+    );
   }
 
   const status = Number(inv.status);
@@ -145,7 +153,12 @@ export default function InvoiceDetail() {
         <div className="card p-6">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl font-semibold font-mono">Invoice #{id}</h1>
-            <span className="text-xs text-text-secondary tabular">{STATUS_LABEL(status)}</span>
+            <span className="text-xs tabular px-2.5 py-1 rounded-full" style={{
+              background: status === 4 ? "rgba(212,76,68,0.15)" : status === 3 ? "rgba(92,184,112,0.15)" : "rgba(255,255,255,0.05)",
+              color: status === 4 ? "var(--color-danger)" : status === 3 ? "var(--color-primary)" : "var(--color-text-secondary)",
+            }}>
+              {STATUS_LABEL(status)}
+            </span>
           </div>
           <StatusStepper invoice={inv} />
 
@@ -165,7 +178,7 @@ export default function InvoiceDetail() {
             <p className="text-text-secondary">{inv.description || "No description"}</p>
           </div>
 
-          <div className="mt-4 space-y-2 text-sm">
+          <div className="mt-4 space-y-2.5 text-sm">
             <div className="flex justify-between"><span className="text-text-secondary">Seller</span>
               <Link to={`/profile/${inv.seller}`} className="font-mono hover:text-primary">{truncateAddress(inv.seller)}</Link></div>
             <div className="flex justify-between"><span className="text-text-secondary">Buyer</span>
@@ -184,8 +197,8 @@ export default function InvoiceDetail() {
               <span className="text-text-secondary">Sold</span>
               <span className="tabular">{Number(inv.totalSoldPercentageBps) / 100}%</span>
             </div>
-            <div className="h-2.5 rounded-full bg-surface-elevated overflow-hidden">
-              <motion.div className="h-full bg-primary" initial={{ width: 0 }} animate={{ width: `${Number(inv.totalSoldPercentageBps) / 100}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
+            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "var(--color-surface-elevated)" }}>
+              <motion.div className="h-full" style={{ background: "linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-strong) 100%)" }} initial={{ width: 0 }} animate={{ width: `${Number(inv.totalSoldPercentageBps) / 100}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
             </div>
             <div className="flex justify-between text-sm mt-4">
               <span className="text-text-secondary">Discount</span><span className="tabular">{Number(inv.discountBps) / 100}%</span>
@@ -214,7 +227,7 @@ export default function InvoiceDetail() {
               {actions.map((a) => (
                 <div key={a.key}>
                   {a.key === "tokenize" && (
-                    <div className="space-y-2 mb-2">
+                    <div className="space-y-3 mb-3">
                       <div>
                         <label className="label mb-1 block">Discount rate (50% to 99%)</label>
                         <select value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="input">
@@ -228,7 +241,7 @@ export default function InvoiceDetail() {
                     </div>
                   )}
                   {a.key === "invest" && (
-                    <div className="mb-2">
+                    <div className="mb-3">
                       <label className="label mb-1 block">Amount to invest (USDT)</label>
                       <input type="text" inputMode="decimal" className="input tabular" value={investAmount} onChange={(e) => setInvestAmount(e.target.value)} placeholder="0.00" />
                     </div>
@@ -253,11 +266,11 @@ export default function InvoiceDetail() {
           <h2 className="font-medium mb-3">Buyer credit history</h2>
           {buyerCredit.data ? (
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="border border-border rounded-md p-3"><div className="text-xl font-semibold tabular">{buyerCredit.data.onTime}</div><div className="text-xs text-text-secondary">On-time</div></div>
-              <div className="border border-border rounded-md p-3"><div className="text-xl font-semibold tabular">{buyerCredit.data.late}</div><div className="text-xs text-text-secondary">Late</div></div>
-              <div className="border border-border rounded-md p-3"><div className="text-xl font-semibold tabular" style={{ color: buyerCredit.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{buyerCredit.data.def}</div><div className="text-xs text-text-secondary">Defaults</div></div>
+              <div className="rounded-xl p-3" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-xl font-semibold tabular">{buyerCredit.data.onTime}</div><div className="text-xs text-text-secondary">On-time</div></div>
+              <div className="rounded-xl p-3" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-xl font-semibold tabular">{buyerCredit.data.late}</div><div className="text-xs text-text-secondary">Late</div></div>
+              <div className="rounded-xl p-3" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-xl font-semibold tabular" style={{ color: buyerCredit.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{buyerCredit.data.def}</div><div className="text-xs text-text-secondary">Defaults</div></div>
             </div>
-          ) : <div className="h-16 rounded bg-surface-elevated animate-pulse" />}
+          ) : <div className="h-16 rounded-xl" style={{ background: "var(--color-surface-elevated)" }} />}
           {trusted && <div className="mt-3"><TrustedBadge /></div>}
         </div>
 

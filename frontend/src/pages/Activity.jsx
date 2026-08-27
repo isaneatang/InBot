@@ -20,6 +20,17 @@ const LABELS = {
   TrustedStatusGranted: "Trusted status granted",
 };
 
+const EVENT_COLORS = {
+  InvoiceCreated: "var(--color-primary)",
+  InvoiceConfirmed: "var(--color-primary)",
+  InvoiceTokenized: "var(--color-primary)",
+  InvestmentMade: "var(--color-primary)",
+  InvoiceRepaid: "var(--color-primary)",
+  InvoicePaidDirect: "var(--color-primary)",
+  InvoiceDefaulted: "var(--color-danger)",
+  TrustedStatusGranted: "var(--color-accent-warn)",
+};
+
 export default function Activity() {
   const { data: blockNumber } = useBlockNumber({ watch: true });
   const [events, setEvents] = useState([]);
@@ -86,21 +97,25 @@ export default function Activity() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-semibold">Live Activity</h1>
         <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--color-primary)" }} />
           <span className="tabular">Block {blockNumber?.toString()}</span>
         </div>
       </div>
 
-      <div className="card p-4 space-y-2">
+      <div className="card p-4 space-y-0">
         {events.length === 0 ? (
-          <p className="text-text-secondary text-sm">Watching for events. New on-chain activity will appear here in real time.</p>
+          <p className="text-text-secondary text-sm p-2">Watching for events. New on-chain activity will appear here in real time.</p>
         ) : (
           events.map((e, i) => (
-            <div key={i} className="flex items-center justify-between text-sm border-b border-border last:border-0 py-2">
+            <div key={i} className="flex items-center justify-between text-sm py-2.5"
+              style={{ borderBottom: i < events.length - 1 ? "1px solid var(--color-border)" : "none" }}>
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs text-text-secondary whitespace-nowrap">{LABELS[e.name] || e.name}</span>
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: EVENT_COLORS[e.name] || "var(--color-text-secondary)" }} />
+                <span className="text-xs whitespace-nowrap" style={{ color: EVENT_COLORS[e.name] || "var(--color-text-secondary)" }}>
+                  {LABELS[e.name] || e.name}
+                </span>
                 {e.actor && <span className="font-mono text-xs text-text-secondary truncate">{truncateAddress(e.actor)}</span>}
-                {e.id !== undefined && <Link to={`/invoice/${e.id}`} className="font-mono text-xs text-primary hover:underline">#{e.id.toString()}</Link>}
+                {e.id !== undefined && <Link to={`/invoice/${e.id}`} className="font-mono text-xs hover:underline" style={{ color: "var(--color-primary)" }}>#{e.id.toString()}</Link>}
               </div>
               {e.ts > 0 && <span className="text-xs text-text-secondary whitespace-nowrap">{formatDate(e.ts)}</span>}
             </div>

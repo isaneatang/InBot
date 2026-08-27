@@ -33,7 +33,9 @@ export default function Settings() {
     setBusy(true);
     try {
       await c.ensureApproval(USERNAME_FEE_WEI);
-      await c.writeContractAsync({ address: INVOICE_FACTORY_ADDRESS, abi: INVOICE_ABI, functionName: "claimUsername", args: [username] });
+      // Small delay to let the wallet/RPC sync after approval
+      await new Promise((r) => setTimeout(r, 300));
+      await c.writeContractWithRetry({ address: INVOICE_FACTORY_ADDRESS, abi: INVOICE_ABI, functionName: "claimUsername", args: [username] });
       toast.push("Username claimed", "success");
       profile.refetch();
       setUsername("");
@@ -61,7 +63,7 @@ export default function Settings() {
                 {busy ? "Claiming..." : "Claim Username"}
               </button>
             </div>
-            {!usernameValid && username && <p className="text-xs text-danger mt-1">Use 1 to 32 letters, numbers, underscores, dots or hyphens.</p>}
+            {!usernameValid && username && <p className="text-xs mt-1" style={{ color: "var(--color-danger)" }}>Use 1 to 32 letters, numbers, underscores, dots or hyphens.</p>}
           </>
         )}
       </div>
@@ -71,11 +73,11 @@ export default function Settings() {
         <p className="text-sm text-text-secondary mb-4">Credit history is permanently tied to this wallet address. It cannot be altered or hidden by anyone, including you.</p>
         {profile.data ? (
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular">{profile.data.onTime}</div><div className="text-xs text-text-secondary">On-time</div></div>
-            <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular">{profile.data.late}</div><div className="text-xs text-text-secondary">Late</div></div>
-            <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular" style={{ color: profile.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{profile.data.def}</div><div className="text-xs text-text-secondary">Defaults</div></div>
+            <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular">{profile.data.onTime}</div><div className="text-xs text-text-secondary">On-time</div></div>
+            <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular">{profile.data.late}</div><div className="text-xs text-text-secondary">Late</div></div>
+            <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular" style={{ color: profile.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{profile.data.def}</div><div className="text-xs text-text-secondary">Defaults</div></div>
           </div>
-        ) : <div className="h-20 rounded bg-surface-elevated animate-pulse" />}
+        ) : <div className="h-20 rounded-xl" style={{ background: "var(--color-surface-elevated)" }} />}
         <Link to={`/profile/${address}`} className="btn btn-outline mt-4 px-4 py-2 text-sm">View public profile</Link>
       </div>
     </div>

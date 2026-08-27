@@ -32,7 +32,7 @@ export default function Profile() {
   const asBuyer = (data || []).filter((inv) => inv.buyer.toLowerCase() === addr);
 
   if (profile.isLoading) {
-    return <div className="card p-6"><div className="h-6 w-1/3 mb-4 rounded bg-surface-elevated animate-pulse" /><div className="h-4 w-1/2 rounded bg-surface-elevated animate-pulse" /></div>;
+    return <div className="card p-6"><div className="h-6 w-1/3 mb-4 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} /><div className="h-4 w-1/2 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} /></div>;
   }
 
   const trusted = profile.data.onTime >= TRUSTED_MIN_REPAID && profile.data.def <= TRUSTED_MAX_DEFAULTS;
@@ -57,14 +57,19 @@ export default function Profile() {
       </div>
 
       <div className="card p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-        <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular">{profile.data.onTime}</div><div className="text-sm text-text-secondary">On-Time Payments</div></div>
-        <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular">{profile.data.late}</div><div className="text-sm text-text-secondary">Late Payments</div></div>
-        <div className="border border-border rounded-md p-4"><div className="text-2xl font-semibold tabular" style={{ color: profile.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{profile.data.def}</div><div className="text-sm text-text-secondary">Defaults</div></div>
+        <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular">{profile.data.onTime}</div><div className="text-sm text-text-secondary">On-Time Payments</div></div>
+        <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular">{profile.data.late}</div><div className="text-sm text-text-secondary">Late Payments</div></div>
+        <div className="rounded-xl p-4" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}><div className="text-2xl font-semibold tabular" style={{ color: profile.data.def > 0 ? "var(--color-danger)" : "inherit" }}>{profile.data.def}</div><div className="text-sm text-text-secondary">Defaults</div></div>
       </div>
 
       <div className="flex gap-2 mb-4">
         {[["buyer", "As Buyer"], ["seller", "As Seller"]].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`px-4 py-2 rounded-md text-sm border ${tab === k ? "bg-primary text-background border-primary" : "border-border text-text-secondary"}`}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} className="px-4 py-2 rounded-lg text-sm transition-all"
+            style={{
+              background: tab === k ? "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-strong) 100%)" : "transparent",
+              color: tab === k ? "#0a0c08" : "var(--color-text-secondary)",
+              border: tab === k ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+            }}>{l}</button>
         ))}
       </div>
 

@@ -1,0 +1,8 @@
+on wallet browsers like okx and the rest, drop down menue will not work like on chrome or any browsers, i dont know why but fix.
+when trying to sign a transactions, seems the network calcullation fails, it tries to estimate the gas fee and then fail, leaving the user unable to sign the tx.
+
+also read all the directory and files and md, and txt to know what the project is about before fixing.
+also fine tune the wallet connect modue to look profession, reown appkit is used as secondary though so take note so that it shows. 
+the mobile view is not good unlicke the desktop view where all navigations are present, the mobile user cannot navigate. i suggest u create a bottom nav bar for it.
+
+also change the whole ui ux to loook professional, it should look modern, u must not temper with the logic usch since  it works, so be carefull not to damage, mage the ui darker and more glossy, take examples from smart websited. buildd!!!

@@ -1,9 +1,14 @@
 export default function TrustedBadge({ small = false }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary text-primary ${
+      className={`inline-flex items-center gap-1 rounded-full ${
         small ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs"
       }`}
+      style={{
+        background: "rgba(92,184,112,0.12)",
+        border: "1px solid rgba(92,184,112,0.3)",
+        color: "var(--color-primary)",
+      }}
       title="Trusted: earned automatically after at least 5 on-time repayments and no defaults. See Documentation."
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">

@@ -67,7 +67,7 @@ export default function CreateInvoice() {
             value={buyer}
             onChange={(e) => setBuyer(e.target.value)}
           />
-          {buyerError && <p className="text-xs text-danger mt-1">{buyerError}</p>}
+          {buyerError && <p className="text-xs mt-1" style={{ color: "var(--color-danger)" }}>{buyerError}</p>}
         </div>
 
         <div>
@@ -79,7 +79,7 @@ export default function CreateInvoice() {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
-          {amountError && <p className="text-xs text-danger mt-1">{amountError}</p>}
+          {amountError && <p className="text-xs mt-1" style={{ color: "var(--color-danger)" }}>{amountError}</p>}
         </div>
 
         <div>
@@ -95,8 +95,8 @@ export default function CreateInvoice() {
           <p className="text-xs text-text-secondary mt-1 text-right tabular">{descLen}/280</p>
         </div>
 
-        <div className="border border-border rounded-md p-3 text-sm">
-          <div className="label mb-1">Summary</div>
+        <div className="rounded-xl p-4 text-sm" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}>
+          <div className="label mb-2">Summary</div>
           <div className="flex justify-between"><span className="text-text-secondary">To</span><span className="font-mono">{buyer || "-"}</span></div>
           <div className="flex justify-between mt-1"><span className="text-text-secondary">Amount</span><span className="tabular">{amountNum > 0 ? `$${formatMoney(parseUnits(amount))}` : "-"}</span></div>
           <div className="flex justify-between mt-1"><span className="text-text-secondary">Description</span><span className="truncate max-w-[60%] text-right">{description || "-"}</span></div>
@@ -116,7 +116,7 @@ export default function CreateInvoice() {
           )}
         </button>
 
-        {txState === "error" && <p className="text-sm text-danger">The transaction failed. Check the network and your USDT balance, then try again.</p>}
+        {txState === "error" && <p className="text-sm" style={{ color: "var(--color-danger)" }}>The transaction failed. Check the network and your USDT balance, then try again.</p>}
         {txState === "confirmed" && txHash && <p className="text-xs text-text-secondary">Confirming. Redirecting to your invoice...</p>}
       </div>
     </div>

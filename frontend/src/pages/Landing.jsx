@@ -14,41 +14,53 @@ export default function Landing() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <section className="text-center py-16">
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            Turn unpaid invoices into cash.
+      <section className="text-center py-12 md:py-20">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6" style={{
+            background: "rgba(92,184,112,0.1)",
+            border: "1px solid rgba(92,184,112,0.2)",
+            color: "var(--color-primary)",
+          }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--color-primary)" }} />
+            Built on BOT Chain
+          </div>
+
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-5 leading-tight">
+            Turn unpaid invoices
+            <br />
+            <span style={{ color: "var(--color-primary)" }}>into cash.</span>
           </h1>
-          <p className="text-lg text-text-secondary max-w-2xl mx-auto mb-8">
+          <p className="text-lg text-text-secondary max-w-2xl mx-auto mb-8 leading-relaxed">
             Issue an invoice, confirm it on-chain, and either collect it directly or sell
             fractional shares to investors at a discount. Built natively on BOT Chain.
           </p>
 
-          {!isConnected ? (
-            <Link to="/dashboard" className="btn btn-primary px-8 py-3 text-base">
-              Get Started
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            {!isConnected ? (
+              <Link to="/dashboard" className="btn btn-primary px-8 py-3 text-base">
+                Get Started
+              </Link>
+            ) : (
+              <Link to="/dashboard" className="btn btn-primary px-8 py-3 text-base">
+                Go to Dashboard
+              </Link>
+            )}
+            <Link to="/docs" className="btn btn-outline px-8 py-3 text-base">
+              Read Documentation
             </Link>
-          ) : (
-            <Link to="/dashboard" className="btn btn-primary px-8 py-3 text-base">
-              Go to Dashboard
-            </Link>
-          )}
-
-          <div className="mt-6 mx-auto max-w-xl border border-accent-warn rounded-md p-4 text-left text-sm text-text-secondary">
-            <span className="font-medium text-accent-warn">Risk disclosure.</span> This is
-            experimental testnet software. The contract cannot force a buyer to pay. Defaults
-            are possible and are recorded permanently on-chain. There is no regulatory
-            protection and no legal recourse provided by the contract. See the{" "}
-            <Link to="/docs" className="underline underline-offset-2 hover:text-text-primary">full documentation</Link>.
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/docs" className="btn btn-outline px-8 py-3 text-base">
-              Read the Documentation
-            </Link>
-            <Link to="/marketplace" className="text-sm text-text-secondary underline underline-offset-2 hover:text-text-primary">
-              Browse the marketplace
-            </Link>
+          <div className="mt-8 mx-auto max-w-xl rounded-xl p-4 text-left text-sm" style={{
+            background: "rgba(212,168,67,0.06)",
+            border: "1px solid rgba(212,168,67,0.2)",
+          }}>
+            <span className="font-medium" style={{ color: "var(--color-accent-warn)" }}>Risk disclosure.</span>{" "}
+            <span className="text-text-secondary">
+              This is experimental testnet software. The contract cannot force a buyer to pay. Defaults
+              are possible and are recorded permanently on-chain. There is no regulatory
+              protection and no legal recourse provided by the contract. See the{" "}
+            </span>
+            <Link to="/docs" className="underline underline-offset-2 hover:text-text-primary">full documentation</Link>.
           </div>
         </motion.div>
       </section>
@@ -70,17 +82,23 @@ export default function Landing() {
           {STEPS.map((s) => (
             <motion.div
               key={s.n}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.2 }}
-              className="card p-4"
+              transition={{ duration: 0.25 }}
+              className="card p-5"
             >
-              <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold mb-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-semibold mb-3 text-sm"
+                style={{
+                  background: "rgba(92,184,112,0.12)",
+                  color: "var(--color-primary)",
+                }}
+              >
                 {s.n}
               </div>
               <h3 className="font-medium mb-1">{s.title}</h3>
-              <p className="text-sm text-text-secondary">{s.desc}</p>
+              <p className="text-sm text-text-secondary leading-relaxed">{s.desc}</p>
             </motion.div>
           ))}
         </div>

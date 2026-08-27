@@ -60,18 +60,18 @@ export default function Marketplace() {
         <div>
           <label className="label mb-1 block">Min discount</label>
           <input type="range" min={5000} max={9900} step={100} value={minDiscount}
-            onChange={(e) => setMinDiscount(Number(e.target.value))} className="w-full accent-primary" />
+            onChange={(e) => setMinDiscount(Number(e.target.value))} className="w-full accent-[var(--color-primary)]" />
           <span className="text-xs tabular text-text-secondary">{(minDiscount / 100).toFixed(0)}%</span>
         </div>
         <div>
           <label className="label mb-1 block">Max days until due</label>
           <input type="range" min={1} max={90} step={1} value={maxDays}
-            onChange={(e) => setMaxDays(Number(e.target.value))} className="w-full accent-primary" />
+            onChange={(e) => setMaxDays(Number(e.target.value))} className="w-full accent-[var(--color-primary)]" />
           <span className="text-xs tabular text-text-secondary">{maxDays} days</span>
         </div>
         <div className="flex items-end pb-1">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={stakedOnly} onChange={(e) => setStakedOnly(e.target.checked)} className="accent-primary" />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={stakedOnly} onChange={(e) => setStakedOnly(e.target.checked)} className="accent-[var(--color-primary)]" />
             Staked only
           </label>
         </div>
@@ -89,14 +89,21 @@ export default function Marketplace() {
 
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[0, 1, 2].map((i) => <div key={i} className="card p-4"><div className="h-4 w-1/3 mb-4 rounded bg-surface-elevated animate-pulse" /><div className="h-6 w-1/2 mb-2 rounded bg-surface-elevated animate-pulse" /><div className="h-4 w-full rounded bg-surface-elevated animate-pulse" /></div>)}
+          {[0, 1, 2].map((i) => <div key={i} className="card p-4"><div className="h-4 w-1/3 mb-4 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} /><div className="h-6 w-1/2 mb-2 rounded-lg" style={{ background: "var(--color-surface-elevated)" }} /><div className="h-4 w-full rounded-lg" style={{ background: "var(--color-surface-elevated)" }} /></div>)}
         </div>
       )}
 
-      {isError && <p className="text-danger">Could not load marketplace data. The network may be unreachable. Check your connection and try again.</p>}
+      {isError && (
+        <div className="card p-6 text-center" style={{ borderColor: "rgba(212,76,68,0.3)" }}>
+          <p style={{ color: "var(--color-danger)" }}>Could not load marketplace data. The network may be unreachable.</p>
+          <p className="text-sm text-text-secondary mt-1">Check your connection and try again.</p>
+        </div>
+      )}
 
       {!isLoading && !isError && list.length === 0 && (
-        <p className="text-text-secondary">No tokenized invoices are currently open for investment. Check back soon.</p>
+        <div className="card p-8 text-center">
+          <p className="text-text-secondary">No tokenized invoices are currently open for investment. Check back soon.</p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

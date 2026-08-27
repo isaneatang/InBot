@@ -38,14 +38,18 @@ export function useFactoryContract() {
     c.usdtAllowance = (who) => publicClient.readContract({ address: ACTIVE_NETWORK.usdtAddress, abi: ERC20_ABI, functionName: "allowance", args: [who, INVOICE_FACTORY_ADDRESS] });
 
     // Approve the contract to spend USDT on the connected user's behalf if needed.
-    // Most USDT-pulling operations revert at estimate time without approval, which is what
-    // causes the wallet to show a dash and refuse to confirm. Approve to the max so the
-    // user only has to do this once.
+    // Some USDT-like tokens have non-standard approve behavior. We approve to the max
+    // so the user only has to do this once. The approval is sent as a separate tx and
+    // we wait for it to be mined before returning.
     c.ensureApproval = async (amount) => {
       const needed = BigInt(amount);
+      if (needed === 0n) return false;
+
       const allowance = await c.usdtAllowance(address);
       const max = 115792089237316195423570985008687907853269984665640564039457584007913129639935n;
       if (allowance < needed) {
+        // Send approval tx and wait for receipt before returning.
+        // This ensures the chain state is updated before the next write.
         const hash = await write.writeContractAsync({
           address: ACTIVE_NETWORK.usdtAddress,
           abi: ERC20_ABI,
@@ -56,6 +60,34 @@ export function useFactoryContract() {
         return true;
       }
       return false;
+    };
+
+    // Estimate gas with retry. Some wallets and RPCs fail gas estimation on the
+    // first attempt, especially right after an approval tx is mined. This retries
+    // up to 2 times with a short delay.
+    c.writeContractWithRetry = async (params, retries = 2) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          return await write.writeContractAsync(params);
+        } catch (err) {
+          const msg = err?.shortMessage || err?.message || "";
+          const isGasError =
+            msg.includes("gas") ||
+            msg.includes("estimate") ||
+            msg.includes("insufficient") ||
+            msg.includes("execution reverted") ||
+            msg.includes("Internal JSON-RPC error") ||
+            err?.code === -32603 ||
+            err?.code === -32000;
+
+          if (isGasError && attempt < retries) {
+            // Wait a bit before retrying to let the node sync
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw err;
+        }
+      }
     };
 
     return c;

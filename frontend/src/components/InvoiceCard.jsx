@@ -16,9 +16,10 @@ function FundingBar({ invoice }) {
         <span>Funding</span>
         <span className="tabular">{pct.toFixed(0)}% sold</span>
       </div>
-      <div className="h-2 rounded-full bg-surface-elevated overflow-hidden">
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--color-surface-elevated)" }}>
         <motion.div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full"
+          style={{ background: "linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-strong) 100%)" }}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.5, ease: "easeOut" }}
@@ -59,10 +60,10 @@ export default function InvoiceCard({ invoice, id }) {
   const due = relativeDue(invoice.dueDate);
 
   return (
-    <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ duration: 0.15, ease: "easeOut" }}>
+    <motion.div whileHover={{ y: -3, scale: 1.01 }} transition={{ duration: 0.18, ease: "easeOut" }}>
       <Link
         to={`/invoice/${id}`}
-        className="card p-4 block hover:border-primary transition-colors"
+        className="card p-4 block hover:border-primary transition-all"
       >
         <div className="flex justify-between items-center mb-3">
           <span className="font-mono text-xs text-text-secondary">#{id}</span>

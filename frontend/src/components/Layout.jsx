@@ -13,15 +13,15 @@ export default function Layout() {
           key={location.pathname}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
         >
           <Outlet />
         </motion.div>
       </main>
-      <footer className="border-t border-border py-6 px-4 mt-8">
+      <footer className="py-8 px-4 mt-8" style={{ borderTop: "1px solid var(--color-border)" }}>
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between gap-4 text-xs text-text-secondary">
           <p>Invoice Ledger. Experimental testnet software. This is not a regulated financial service.</p>
-          <Link to="/docs" className="hover:text-text-primary underline underline-offset-2">Read the Risk Disclosure</Link>
+          <Link to="/docs" className="underline underline-offset-2 hover:text-text-primary transition-colors">Read the Risk Disclosure</Link>
         </div>
       </footer>
     </div>

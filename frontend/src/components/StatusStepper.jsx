@@ -41,8 +41,9 @@ export default function StatusStepper({ invoice, compact = false }) {
                 style={{
                   backgroundColor: state === "todo" ? "transparent" : isDanger ? "var(--color-danger)" : "var(--color-primary)",
                   border: state === "todo" ? "2px solid var(--color-border)" : "none",
-                  outline: state === "current" ? "2px solid var(--color-primary)" : "none",
-                  opacity: state === "todo" ? 0.5 : 1,
+                  outline: state === "current" ? `2px solid ${isDanger ? "var(--color-danger)" : "var(--color-primary)"}` : "none",
+                  opacity: state === "todo" ? 0.4 : 1,
+                  boxShadow: state === "current" ? `0 0 8px ${isDanger ? "rgba(212,76,68,0.4)" : "rgba(92,184,112,0.4)"}` : "none",
                 }}
                 animate={
                   state === "current"
@@ -62,9 +63,9 @@ export default function StatusStepper({ invoice, compact = false }) {
             </motion.div>
             {i < steps.length - 1 && (
               <div
-                className="h-0.5 flex-1 mx-1"
+                className="h-0.5 flex-1 mx-1 rounded-full"
                 style={{
-                  backgroundColor: i < currentIdx ? "var(--color-primary)" : "var(--color-border)",
+                  backgroundColor: i < currentIdx ? (isDanger ? "var(--color-danger)" : "var(--color-primary)") : "var(--color-border)",
                 }}
               />
             )}
