@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/dist-ssr/
+contracts/out/
+contracts/cache/
+
+# Deploy broadcast records (contains deployment tx data)
+contracts/broadcast/
+
+# Foundry
+contracts/lib/forge-std/
+contracts/lib/openzeppelin-contracts/
+
+# Environment / secrets (NEVER commit)
+.env
+.env.*
+!.env.example
+contracts/.env
+frontend/.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

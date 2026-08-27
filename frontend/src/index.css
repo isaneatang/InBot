@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #12140f;
+  --color-surface: #1a1d16;
+  --color-surface-elevated: #22261c;
+  --color-border: #2c3024;
+  --color-primary: #6b9b6e;
+  --color-primary-strong: #4d7a52;
+  --color-accent-warn: #c9a227;
+  --color-danger: #b5453f;
+  --color-text-primary: #eae7dd;
+  --color-text-secondary: #8f9285;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-lg: 8px;
+  --radius-md: 6px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures for all numbers so columns align. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--root-lg);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--root-md);
+  font-weight: 500;
+  transition: background-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out;
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #12140f;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-strong);
+  color: #eae7dd;
+}
+
+.btn-outline {
+  border: 1px solid var(--color-border);
+  background-color: transparent;
+  color: var(--color-text-primary);
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.input {
+  border-radius: var(--root-md);
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  color: var(--color-text-primary);
+  width: 100%;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.input.input-error {
+  border-color: var(--color-danger);
+}
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Reown AppKit modal centering.
+   The library appends its overlay to the body and can render partly off-screen when the
+   page has transformed ancestors. Force the modal to fill and center the viewport. */
+w3m-modal,
+[data-w3m-modal],
+.w3m-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2147483000 !important;
+  padding: 0 !important;
+}
+
+w3m-modal .w3m-modal-card,
+.w3m-modal-card {
+  margin: 0 !important;
+  max-height: 92vh !important;
+  overflow-y: auto !important;
+}

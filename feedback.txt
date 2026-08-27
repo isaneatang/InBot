@@ -1,0 +1,137 @@
+FEEDBACK: What was built, in what order, and what was observed
+
+Plain, honest account of the build and testing process.
+
+## 1. What was implemented and in what order
+
+The build followed the stages in the build prompt in order.
+
+Stage 1 (research) was completed first and the verified values were written to
+NETWORK_CONFIG.md. Stage 2 and 3 (contract) came next. Stage 4 (tests) was written and run
+until green. Stage 5 (deployment config) and the frontend configuration were done next.
+Stages 6, 7 and 8 (wallet, design system, pages) were implemented together in the frontend.
+Stage 9 (verification) was performed at the end.
+
+The stack is as specified: React + Vite, viem for all reads and writes, Reown AppKit as the
+fallback wallet path, Tailwind CSS with the custom palette, Framer Motion for animation,
+Solidity 0.8.24 via Foundry, and OpenZeppelin for SafeERC20 and ReentrancyGuard. No backend
+server or database.
+
+## 2. Stage 1 research values
+
+All network values were verified against official BOT Chain sources (dev docs, bridge docs,
+and direct RPC calls). Details and source URLs are in NETWORK_CONFIG.md.
+
+Confirmed with high confidence:
+- Testnet chain id 968, RPC https://rpc.bohr.life, explorer https://scan.bohr.life.
+- Mainnet chain id 677, RPC https://rpc.botchain.ai, explorer https://scan.botchain.ai.
+- Native token BOT.
+- Testnet USDT at 0x75edC9335175Fc0552D51D48439F229c10420fe3, 6 decimals, symbol USDT
+  (confirmed by direct RPC calls to name, symbol and decimals).
+- Mainnet bridged USDT at 0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C, 6 decimals, symbol USDT
+  (confirmed by direct RPC calls).
+
+Caveats:
+- The testnet explorer shows a cosmetic token label "Stub Token (goerli)" for the USDT
+  address, but the bridge documentation lists it as the USDT contract and direct RPC calls
+  confirm it is Tether USD. This is a display-only mismatch in the explorer and was used
+  anyway, documented in NETWORK_CONFIG.md.
+- Official brand colors could not be retrieved because the brand kit is distributed as a zip
+  that could not be parsed in this environment. The muted palette from the prompt was used
+  for the default theme, as the prompt allows.
+
+## 3. Deviations from the specification
+
+- The `latePayments` mapping is tracked and written only where required (it is incremented
+  nowhere in the current logic because no grace period logic exists, which matches the
+  spec's instruction to reserve it for future use). It is exposed as a public read.
+- Two extra fields were added to the Invoice struct that the supplementary document
+  required: `sellerHasClaimed` (explicitly required by A.6) and, additionally,
+  `distributedAmount` and `claimsMade`. These last two are needed so that `sweepDust` can
+  know how much genuine leftover remains and when all claims are settled, as described in
+  A.3. These are flagged as necessary additions.
+- `sweepDust` uses a slightly adjusted expected-claim count for defaulted invoices: on a
+  default the seller cannot claim, so the expected count is the number of investors (not
+  investors plus one). This prevents the edge case where a defaulted, staked invoice with no
+  investors would otherwise leave the stake permanently locked.
+- The platform was deployed to BOT Chain Testnet during a later run once a funded private key
+  became available (see section 6). The deployment script is complete and documented, and the
+  live address is recorded in NETWORK_CONFIG.md and placed in the frontend config.
+- The Reown AppKit dependency required careful version pinning to build. Details below.
+
+## 4. Contract test suite results
+
+Foundry test suite, file contracts/test/InvoiceFactory.t.sol. Result: 20 tests passed, 0
+failed, 0 skipped.
+
+Coverage includes: direct payment happy path, tokenized full subscription and full
+repayment, partial subscription split, seller stake returned on success, default with no
+stake (investors and seller recover nothing beyond disclosed risk), default with stake
+(stake made available to investors), pay after due date reverts, invest after due date
+reverts, tokenize an unconfirmed invoice reverts, invalid discount rate reverts, over-invest
+reverts, double-claim reverts, username claim including uniqueness and fee, Trusted status
+triggers after threshold and not before, and rounding and dust handling across three uneven
+investors.
+
+One real contract bug was found and fixed during testing: `markDefault` set the status to
+Defaulted before checking whether the invoice was tokenized, which would have prevented the
+stake from ever being consumed. The fix captures whether the invoice was tokenized before
+the status change.
+
+## 5. Final verification pass results
+
+1. Contract test suite rerun: all 20 tests pass.
+2. Manual scenario tracing was performed through the test suite rather than a live deployment
+   (see deviation above), because no funded testnet key was available. On-chain state and
+   emitted events are asserted in the tests for each scenario.
+3. Wallet connection: the primary browser-wallet (injected EIP-1193) path is implemented via
+   wagmi's injected connector. The Reown AppKit modal path is wired as the mobile fallback.
+   Both are present in the Navbar connect modal. Live manual testing with a real wallet was
+   not possible in this headless environment.
+4. Network add and switch logic is implemented for both the not-configured case
+   (wallet_addEthereumChain) and the wrong-network case (wallet_switchEthereumChain), with a
+   persistent banner. Not exercised against a live wallet here.
+5. The site builds and the dev server runs; layout uses responsive grid breakpoints as
+   specified. Visual inspection at device widths was not possible in this headless
+   environment, but the responsive classes follow the spec.
+6. User-facing copy was scanned and all em dashes were removed from the frontend source.
+7. The contract has no owner, admin, pausable, or role-based function. Verified by grep and
+   by inspection. All fees, thresholds, token, and fee recipient are immutable after
+   deployment.
+8. The mainnet switch is implemented via a single `ACTIVE_NETWORK_KEY` constant in
+   frontend/src/config/network.js, defaulting to testnet. Toggling it repoints chain id, RPC,
+   USDT address, and explorer URL without other code changes. Verified by inspection.
+
+## 6. Known limitations and rough edges
+
+- Deployed to BOT Chain Testnet at 0x04c168f01e749ce16b274e9bea22c5ddc2c3e6a2 on 2026-08-27,
+  tx 0x7fb2307a218cbd0cd72faca66de076b8d784bbde8035d7dba74068863eb4df1f. The address is set
+  in `frontend/src/config/network.js` and on-chain reads were confirmed with viem. The
+  contract is not source-verified on the explorer (source verification needs a Blockscout API
+  key that was not available), so it shows as unverified on scan.bohr.life.
+- The contract was deployed with a live private key. The key is present in `contracts/.env`,
+  which is local-only and must never be committed.
+- Reown mobile-wallet connection requires a real Reown project id. The project id from
+  `contracts/.env` was placed in `frontend/.env.local` as `VITE_REOWN_PROJECT_ID`. It is not
+  committed (both `.env` patterns are gitignored).
+- The frontend iterates all invoice ids on the Marketplace, Profile and Dashboard pages.
+  This is fine for a testnet proof of concept but will not scale to many invoices; a real
+  indexer or TheGraph subgraph would be needed for production.
+- The explorer token label mismatch for testnet USDT is unresolved but cosmetic.
+- No automated visual/browser testing was run in this headless environment.
+
+## 7. Judgement calls and dependency issues
+
+The single most time-consuming issue was the frontend dependency graph. The Reown AppKit
+wagmi adapter in the current registry snapshot resolves to @wagmi/connectors v8, which is
+tied to wagmi 3 and imports a viem subpath (viem/tempo/zones) that does not exist in the
+stable viem 2.x line. That made a plain install fail to build. After exploring several
+combinations, the working solution pins wagmi 2.19.5, @wagmi/core 2.22.1, viem 2.56.0, and
+forces @wagmi/connectors to 6.1.0 via an npm override, alongside Reown AppKit 1.8.23. This
+set builds and runs cleanly while preserving the required primary (injected) and fallback
+(AppKit) wallet paths. The pinned versions are recorded in frontend/package.json.
+
+Two mainnet-capability verifications that were part of Stage 1 (USDT decimals and symbol)
+were done via direct RPC calls rather than the explorer's verified-contracts page, because
+the explorer's USDT page did not render verified contract metadata. The RPC results are
+authoritative for the token and match the bridge documentation.

@@ -1,0 +1,106 @@
+# Next Steps
+
+Plain, numbered guidance for the human developer. Run the commands in order.
+
+## 1. Run the project locally for the first time
+
+Prerequisites: Node 20 or newer, npm, Foundry (forge/cast), and a browser wallet (e.g. MetaMask)
+with the BOT Chain Testnet network added.
+
+Contracts (Foundry):
+```
+cd contracts
+forge install
+forge build
+```
+
+Frontend (Vite + React):
+```
+cd frontend
+npm install
+npm run dev
+```
+
+Environment variables for the frontend (create `frontend/.env.local`):
+   VITE_REOWN_PROJECT_ID=<your Reown/AppKit project id>
+
+If you do not set a Reown project id, the app still runs and the primary browser-wallet
+connection path works. The Reown mobile-wallet fallback needs a real project id from the
+Reown Cloud dashboard (cloud.reown.com).
+
+## 2. Run the contract test suite
+
+   cd contracts
+   forge test
+
+Expected result: 20 tests pass, 0 fail.
+
+## 3. Redeploy the contract if needed
+
+The constructor takes the USDT token address and the platform fee recipient address.
+
+Set up a funded private key and a fee recipient address, then run:
+
+   cd contracts
+   PRIVATE_KEY=0x... FEE_RECIPIENT=0x... forge script script/Deploy.s.sol \
+     --rpc-url https://rpc.bohr.life --broadcast
+
+The default USDT address in the script is the BOT Chain Testnet bridged USDT
+(0x75edC9335175Fc0552D51D48439F229c10420fe3). Override with USDT_ADDRESS if needed.
+
+After deployment, the printed contract address MUST be pasted into
+`frontend/src/config/network.js` as `INVOICE_FACTORY_ADDRESS`. Do not run the frontend
+against a zero address.
+
+## 4. Push the project to GitHub
+
+The project is not connected to a remote yet. From the repository root:
+
+   cd /home/isane/Documents/DONCODER/InBot
+   git init
+   git add -A
+   git commit -m "Invoice Ledger: on-chain invoice factoring on BOT Chain"
+   git remote add origin <your-github-repo-url>
+   git branch -M main
+   git push -u origin main
+
+Check that no private keys or .env files are committed. Only public config is committed.
+
+## 5. Deploy the frontend to Vercel for a demo
+
+1. Push the repo to GitHub (step 4).
+2. In Vercel, create a new project and import the GitHub repo.
+3. Root directory: `frontend`. Framework preset: Vite.
+4. Add an environment variable in the Vercel project settings:
+   VITE_REOWN_PROJECT_ID=<your Reown project ID>
+5. Deploy. The build runs `npm run build` automatically.
+
+## 6. Switch the active network from testnet to mainnet
+
+Edit `frontend/src/config/network.js` and change the exported constant:
+
+   export const ACTIVE_NETWORK_KEY = "mainnet";
+
+This single change repoints the chain id, RPC URL, USDT address, and block explorer at BOT
+Chain Mainnet. No other code change is required. Because the contract is immutable, you must
+also redeploy the contract with the mainnet USDT address
+(0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) and update `INVOICE_FACTORY_ADDRESS`.
+
+## 7. Manual checks before sharing the demo link publicly
+
+This software handles real financial logic on testnet. Before sharing:
+
+1. Confirm the deployed contract address is entered in `frontend/src/config/network.js`
+   and that reads work (Invoice list loads on the Marketplace page).
+2. Fund a seller wallet, a buyer wallet, and an investor wallet with test USDT on the testnet
+   and test each flow: direct payment, tokenized full subscription, partial subscription,
+   staking, and default.
+3. Confirm the network add and switch banner works from a wallet with no BOT Chain network,
+   and separately from a wallet on the wrong network.
+4. Confirm the site has no broken layout at mobile and desktop widths.
+5. Confirm a defaulted invoice shows its status with the word "Defaulted" and a color, never
+   color alone.
+6. Confirm the Trusted badge cannot be manually granted, only earned after 5 on-time
+   repayments and no defaults.
+7. Verify the risk disclosure text on the landing page and Documentation page is present and
+   correct before sharing.
