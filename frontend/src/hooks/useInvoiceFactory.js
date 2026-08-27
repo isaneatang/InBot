@@ -62,30 +62,81 @@ export function useFactoryContract() {
       return false;
     };
 
-    // Estimate gas with retry. Some wallets and RPCs fail gas estimation on the
-    // first attempt, especially right after an approval tx is mined. This retries
-    // up to 2 times with a short delay.
-    c.writeContractWithRetry = async (params, retries = 2) => {
+    // Simulate the contract call first to:
+    // 1. Get a clear revert reason if the call would fail
+    // 2. Obtain an accurate gas estimate so the wallet doesn't need to re-estimate
+    //    (wallet-level estimation often fails on ergs-9060 chains right after an
+    //     approval tx is mined, even though the on-chain state is correct).
+    // Retries with exponential backoff for transient RPC staleness.
+    c.writeContractWithRetry = async (params, retries = 3) => {
+      const { address, abi, functionName, args, value } = params;
+
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          return await write.writeContractAsync(params);
+          const { request } = await publicClient.simulateContract({
+            address,
+            abi,
+            functionName,
+            args,
+            account: address,
+            value,
+          });
+          // Pass the estimated gas (with 50% buffer) so the wallet never needs
+          // to estimate again, avoiding the "dashes" UX on wallet browsers.
+          return await write.writeContractAsync({
+            address,
+            abi,
+            functionName,
+            args,
+            value,
+            gas: (request.gas * 150n) / 100n,
+          });
         } catch (err) {
-          const msg = err?.shortMessage || err?.message || "";
-          const isGasError =
-            msg.includes("gas") ||
-            msg.includes("estimate") ||
-            msg.includes("insufficient") ||
-            msg.includes("execution reverted") ||
-            msg.includes("Internal JSON-RPC error") ||
-            err?.code === -32603 ||
-            err?.code === -32000;
+          const deepMsg = [
+            err?.shortMessage,
+            err?.message,
+            err?.details,
+            err?.cause?.shortMessage,
+            err?.cause?.message,
+            err?.cause?.details,
+            err?.cause?.reason,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const userRejected =
+            deepMsg.includes("User rejected") ||
+            deepMsg.includes("user rejected") ||
+            err?.code === 4001;
+          if (userRejected) throw err;
 
-          if (isGasError && attempt < retries) {
-            // Wait a bit before retrying to let the node sync
-            await new Promise((r) => setTimeout(r, 1500));
+          const isRetryable =
+            deepMsg.includes("gas") ||
+            deepMsg.includes("estimate") ||
+            deepMsg.includes("insufficient") ||
+            deepMsg.includes("execution reverted") ||
+            deepMsg.includes("Internal JSON-RPC error") ||
+            deepMsg.includes("timed out") ||
+            deepMsg.includes("timeout") ||
+            deepMsg.includes("rate limit") ||
+            deepMsg.includes("too many requests") ||
+            deepMsg.includes("header not found") ||
+            deepMsg.includes("block") ||
+            err?.code === -32603 ||
+            err?.code === -32000 ||
+            err?.code === -32005;
+
+          if (isRetryable && attempt < retries) {
+            const delay = Math.min(1000 * 2 ** attempt, 6000);
+            await new Promise((r) => setTimeout(r, delay));
             continue;
           }
-          throw err;
+
+          // If we exhausted retries or the error is not retryable, rethrow with
+          // the most useful human-readable message available.
+          const finalMsg = err?.shortMessage || err?.cause?.shortMessage || err?.message || "Transaction failed";
+          const fallback = new Error(finalMsg);
+          fallback.code = err?.code;
+          throw fallback;
         }
       }
     };

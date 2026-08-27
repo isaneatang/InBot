@@ -32,15 +32,21 @@ export default function Settings() {
   const claim = async () => {
     setBusy(true);
     try {
+      // Check the user has enough USDT before we bother with approvals.
+      const bal = await c.usdtBalance(address);
+      if (bal < USERNAME_FEE_WEI) {
+        toast.push("You need at least 1 USDT to claim a username.", "error");
+        setBusy(false);
+        return;
+      }
+
       await c.ensureApproval(USERNAME_FEE_WEI);
-      // Small delay to let the wallet/RPC sync after approval
-      await new Promise((r) => setTimeout(r, 300));
       await c.writeContractWithRetry({ address: INVOICE_FACTORY_ADDRESS, abi: INVOICE_ABI, functionName: "claimUsername", args: [username] });
       toast.push("Username claimed", "success");
       profile.refetch();
       setUsername("");
     } catch (e) {
-      toast.push(e?.shortMessage || "Claim failed", "error");
+      toast.push(e?.message || e?.shortMessage || "Claim failed", "error");
     } finally {
       setBusy(false);
     }
