@@ -153,6 +153,49 @@
   },
   {
     "type": "function",
+    "name": "claimableInvestorShare",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimableSellerShare",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "confirmInvoice",
     "inputs": [
       {
@@ -219,6 +262,291 @@
   },
   {
     "type": "function",
+    "name": "getCreditProfile",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "username",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "onTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "late",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "defaults",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "trusted",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInvestors",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInvoice",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct InvoiceFactory.Invoice",
+        "components": [
+          {
+            "name": "seller",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "buyer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "faceValue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "dueDate",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum InvoiceFactory.InvoiceStatus"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "confirmedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalSoldPercentageBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "discountBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "stakedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "stakeConsumed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "repaidAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sellerHasClaimed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "distributedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimsMade",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "poolAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "distributionBasisBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInvoices",
+    "inputs": [
+      {
+        "name": "offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "page",
+        "type": "tuple[]",
+        "internalType": "struct InvoiceFactory.Invoice[]",
+        "components": [
+          {
+            "name": "seller",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "buyer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "faceValue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "dueDate",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum InvoiceFactory.InvoiceStatus"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "confirmedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalSoldPercentageBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "discountBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "stakedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "stakeConsumed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "repaidAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sellerHasClaimed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "distributedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimsMade",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "poolAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "distributionBasisBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "invest",
     "inputs": [
       {
@@ -248,6 +576,25 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "investorCount",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -397,6 +744,35 @@
         "name": "claimsMade",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "poolAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "distributionBasisBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isTrusted",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -493,6 +869,30 @@
   },
   {
     "type": "function",
+    "name": "quoteInvestment",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "repayTokenized",
     "inputs": [
       {
@@ -516,6 +916,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sweepableDust",
+    "inputs": [
+      {
+        "name": "invoiceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -960,6 +1379,22 @@
     "type": "error",
     "name": "AlreadyClaimed",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ClaimsPending",
+    "inputs": [
+      {
+        "name": "settled",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expected",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

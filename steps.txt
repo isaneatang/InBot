@@ -33,7 +33,7 @@ Reown Cloud dashboard (cloud.reown.com).
    cd contracts
    forge test
 
-Expected result: 20 tests pass, 0 fail.
+Expected result: 28 tests pass, 0 fail.
 
 ## 3. Redeploy the contract if needed
 
@@ -48,23 +48,56 @@ Set up a funded private key and a fee recipient address, then run:
 The default USDT address in the script is the BOT Chain Testnet bridged USDT
 (0x75edC9335175Fc0552D51D48439F229c10420fe3). Override with USDT_ADDRESS if needed.
 
-After deployment, the printed contract address MUST be pasted into
-`frontend/src/config/network.js` as `INVOICE_FACTORY_ADDRESS`. Do not run the frontend
-against a zero address.
+After deployment two things must be updated, not one:
+
+1. Paste the printed contract address into `frontend/src/config/network.js` as
+   `INVOICE_FACTORY_ADDRESS`.
+2. Regenerate the frontend ABI, because a stale ABI silently breaks any function whose
+   signature changed:
+
+   cd contracts
+   python3 -c "import json; json.dump(json.load(open('out/InvoiceFactory.sol/InvoiceFactory.json'))['abi'], open('../frontend/src/abi.json','w'), indent=2)"
+
+Redeploying starts the invoice book from zero. The previous deployment's invoices are not
+migrated and cannot be, because the contract is immutable and holds no upgrade path. The
+currently deployed address is recorded in NETWORK_CONFIG.md.
+
+## 3b. Sanity check a fresh deployment before using the UI
+
+Confirm the constructor arguments landed and the new view functions respond:
+
+   cd contracts
+   FACTORY=<new address>
+   cast call --rpc-url https://rpc.bohr.life $FACTORY 'usdtToken()(address)'
+   cast call --rpc-url https://rpc.bohr.life $FACTORY 'platformFeeRecipient()(address)'
+   cast call --rpc-url https://rpc.bohr.life $FACTORY 'PLATFORM_FEE_BPS()(uint16)'
+   cast call --rpc-url https://rpc.bohr.life $FACTORY 'nextInvoiceId()(uint256)'
+
+Expect the USDT address you deployed against, your fee recipient, 50, and 0.
 
 ## 4. Push the project to GitHub
 
-The project is not connected to a remote yet. From the repository root:
+The repository is already initialised and has a remote. The branch is currently `master`.
+From the repository root:
 
    cd /home/isane/Documents/DONCODER/InBot
-   git init
+   git status
    git add -A
-   git commit -m "Invoice Ledger: on-chain invoice factoring on BOT Chain"
-   git remote add origin <your-github-repo-url>
+   git commit -m "<describe the change>"
+   git push
+
+To rename the branch to `main` first:
+
    git branch -M main
    git push -u origin main
 
-Check that no private keys or .env files are committed. Only public config is committed.
+Before every commit, confirm no private keys or .env files are staged:
+
+   git status --short
+   git diff --cached --stat
+
+`contracts/.env` holds a funded private key and is gitignored. Verify that it stays out of
+`git status` output. If it ever appears there, stop and fix .gitignore before committing.
 
 ## 5. Deploy the frontend to Vercel for a demo
 
@@ -88,19 +121,77 @@ also redeploy the contract with the mainnet USDT address
 
 ## 7. Manual checks before sharing the demo link publicly
 
-This software handles real financial logic on testnet. Before sharing:
+This software handles real financial logic on testnet. The contract logic has been verified
+both in the test suite and against the live deployment, but nothing below has been seen in a
+real browser. Check each item yourself.
 
-1. Confirm the deployed contract address is entered in `frontend/src/config/network.js`
-   and that reads work (Invoice list loads on the Marketplace page).
-2. Fund a seller wallet, a buyer wallet, and an investor wallet with test USDT on the testnet
-   and test each flow: direct payment, tokenized full subscription, partial subscription,
-   staking, and default.
-3. Confirm the network add and switch banner works from a wallet with no BOT Chain network,
-   and separately from a wallet on the wrong network.
-4. Confirm the site has no broken layout at mobile and desktop widths.
-5. Confirm a defaulted invoice shows its status with the word "Defaulted" and a color, never
-   color alone.
-6. Confirm the Trusted badge cannot be manually granted, only earned after 5 on-time
-   repayments and no defaults.
-7. Verify the risk disclosure text on the landing page and Documentation page is present and
-   correct before sharing.
+Wallet and network:
+
+1. Connect with a browser extension wallet. Confirm each installed wallet is listed by name in
+   the connect modal, not just one generic entry.
+2. Connect with a mobile wallet by QR code. This needs VITE_REOWN_PROJECT_ID set. If the modal
+   opens but no session forms, the project id is wrong or missing.
+3. Start from a wallet with no BOT Chain network configured and confirm the add prompt appears.
+   Separately, start from a wallet already holding BOT Chain but sitting on another network and
+   confirm the switch prompt appears.
+4. While on the wrong network, confirm the banner shows, browsing still works, and every action
+   button is disabled rather than opening the wallet.
+
+Transactions, the part that was broken:
+
+5. Claim a username with a wallet that has never approved USDT. You should see two prompts, an
+   approval then the claim, each with a real gas figure and never a dash or a blank fee.
+6. Repeat on a mobile wallet's in-app browser. That is where the missing gas limit caused the
+   original failure, and it is the case a desktop test will not reproduce.
+7. Try an action with zero BOT in the wallet. You should be told you cannot cover gas before any
+   prompt opens.
+8. Try paying an invoice with insufficient USDT. You should be told the balance is too low
+   before any prompt opens.
+9. Cancel a transaction in the wallet. No error toast should appear, only a return to idle.
+
+Full flows, with a seller, a buyer and two investor wallets funded with test USDT:
+
+10. Direct payment: create, confirm with a due date you pick, pay, claim. Confirm the buyer sets
+    the due date and that the seller receives face value minus 0.5 percent.
+11. Tokenized and fully subscribed: create, confirm, tokenize, fill it, repay, then claim from
+    every side. Confirm the contract ends empty.
+12. Partially subscribed: repeat with only part sold. Confirm the seller claims the unsold share
+    and the investor claims theirs.
+13. Default with a stake, partially sold, using a short due date a few minutes out. Confirm the
+    investors receive the entire stake between them and that the platform sweeps nothing. This
+    is the case that was previously wrong.
+14. Default with no stake. Confirm investors are told plainly that there is nothing to claim
+    rather than being shown a failing transaction.
+
+Automated interface check, run this first:
+
+    cd frontend
+    npm run build
+    npx vite preview --port 4173 --strictPort &
+    chromium --headless=new --disable-gpu --remote-debugging-port=9222 about:blank &
+    node verify-browser.mjs
+
+    It loads all ten routes at 375, 768 and 1440 pixels wide, reports uncaught exceptions,
+    console errors, failed requests, blank pages and horizontal scroll, and writes screenshots
+    to frontend/verify-shots/ for you to look at. Expect "render failures: 0". Use firefox in
+    place of chromium if you prefer; any Chromium build with a DevTools port works.
+
+    This catches layout breakage and runtime errors. It cannot tell you whether a wallet in-app
+    browser signs cleanly, which is where the original gas bug lived, so items 5 to 9 above
+    still have to be done by hand.
+
+Interface, by hand:
+
+15. Check every page at 375 px, 768 px and 1440 px width. Confirm the bottom tab bar clears the
+    home indicator on a real phone, that no text overlaps, and that no table or address string
+    forces a horizontal scroll.
+16. Confirm skeletons appear while data loads, not spinners, on the dashboard, marketplace and
+    profile pages.
+17. Disconnect from the internet and reload. Confirm the error state says the network is
+    unreachable, which is different from the wrong network message.
+18. Confirm a defaulted invoice states the word Defaulted as text beside its colour, and that
+    every status chip does the same.
+19. Confirm the Trusted badge cannot be granted by any path other than five on-time repayments
+    with no defaults, and that it links to the documentation that explains it.
+20. Re-read the risk disclosure on the landing page and the documentation page. It must be
+    visible next to the primary call to action, not only in the footer.

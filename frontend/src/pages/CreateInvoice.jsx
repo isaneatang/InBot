@@ -1,123 +1,253 @@
-import { useState } from "react";
-import { useAccount } from "wagmi";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { isAddress } from "viem";
-import { useFactoryContract, INVOICE_ABI } from "../hooks/useInvoiceFactory";
-import { useToast } from "../components/Toast";
-import { formatMoney, parseUnits } from "../lib/format";
-import { INVOICE_FACTORY_ADDRESS } from "../config/network";
+import { useQuery } from "@tanstack/react-query";
+import TxButton, { useTransaction } from "../components/TxButton";
+import TrustedBadge from "../components/TrustedBadge";
+import { Callout, CreditSummary, EmptyState, Icon, Money, PageHeader, Skeleton } from "../components/ui";
+import { useFactoryContract } from "../hooks/useInvoiceFactory";
+import { useNetworkSwitch, useWallet } from "../hooks/useNetwork";
+import { formatMoneyFixed, parseUnits, sameAddress } from "../lib/format";
+import { ACTIVE_NETWORK, PLATFORM_FEE_BPS } from "../config/network";
+
+const MAX_DESCRIPTION = 280;
 
 export default function CreateInvoice() {
-  const { address, isConnected } = useAccount();
   const navigate = useNavigate();
-  const toast = useToast();
+  const { address, isConnected, onCorrectNetwork } = useWallet();
+  const { switchNetwork } = useNetworkSwitch();
   const c = useFactoryContract();
+
   const [buyer, setBuyer] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [txState, setTxState] = useState("idle");
-  const [txHash, setTxHash] = useState("");
 
-  const buyerError = buyer && !isAddress(buyer) ? "Not a valid address" : buyer && buyer.toLowerCase() === address?.toLowerCase() ? "Buyer cannot be yourself" : "";
-  const amountNum = Number(amount);
-  const amountError = amount && (!isFinite(amountNum) || amountNum <= 0) ? "Enter an amount greater than zero" : "";
-  const descLen = description.length;
-  const valid = isAddress(buyer) && !buyerError && !amountError && amountNum > 0 && descLen > 0;
+  const amountWei = parseUnits(amount);
 
-  const handleSubmit = async () => {
-    if (!valid) return;
-    const amountWei = parseUnits(amount);
-    setTxState("pending");
-    try {
-      const hash = await c.writeContractAsync({
-        address: INVOICE_FACTORY_ADDRESS,
-        abi: INVOICE_ABI,
-        functionName: "createInvoice",
-        args: [buyer, amountWei, description],
-      });
-      setTxHash(hash);
-      setTxState("confirmed");
-      toast.push("Invoice created", "success");
-      const newCount = Number(await c.nextInvoiceId());
-      setTimeout(() => navigate(`/invoice/${newCount - 1}`), 1200);
-    } catch (e) {
-      setTxState("error");
-      toast.push(e?.shortMessage || "Transaction failed", "error");
-    }
-  };
+  const buyerError = useMemo(() => {
+    if (!buyer) return "";
+    if (!isAddress(buyer)) return "That is not a valid wallet address.";
+    if (sameAddress(buyer, address)) return "You cannot invoice your own wallet address.";
+    return "";
+  }, [buyer, address]);
+
+  const amountError = useMemo(() => {
+    if (!amount) return "";
+    if (!/^\d*\.?\d*$/.test(amount.trim())) return "Enter a plain number, for example 1500.00";
+    if (amountWei === 0n) return "Enter an amount greater than zero.";
+    return "";
+  }, [amount, amountWei]);
+
+  const descriptionError = description.length > MAX_DESCRIPTION ? "Description is too long." : "";
+
+  const valid =
+    isAddress(buyer) &&
+    !buyerError &&
+    amountWei > 0n &&
+    !amountError &&
+    description.trim().length > 0 &&
+    !descriptionError;
+
+  /** Shows the buyer's on-chain record before the invoice is sent, not after. */
+  const buyerProfile = useQuery({
+    queryKey: ["creditProfile", buyer.toLowerCase()],
+    enabled: isAddress(buyer) && !sameAddress(buyer, address),
+    queryFn: () => c.creditProfile(buyer),
+  });
+
+  const tx = useTransaction({
+    onConfirmed: async () => {
+      const total = Number(await c.nextInvoiceId());
+      navigate(`/invoice/${total - 1}`);
+    },
+  });
 
   if (!isConnected) {
     return (
-      <div className="card max-w-md mx-auto p-8 text-center">
-        <p className="mb-4">Connect your wallet to create an invoice.</p>
-        <button className="btn btn-primary px-6 py-2" onClick={() => navigate("/")}>Connect Wallet</button>
-      </div>
+      <EmptyState
+        icon="wallet"
+        title="Connect your wallet to create an invoice"
+        body="The connected address becomes the seller on the invoice and receives the proceeds."
+        action={
+          <Link to="/docs#how-it-works" className="btn btn-outline">
+            Read how it works first
+          </Link>
+        }
+      />
     );
   }
 
+  const fee = (amountWei * BigInt(PLATFORM_FEE_BPS)) / 10000n;
+
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-xl font-semibold mb-6">Create Invoice</h1>
-      <div className="card p-6 space-y-4">
-        <div>
-          <label className="label mb-1 block">Buyer wallet address</label>
-          <input
-            className={`input font-mono ${buyerError ? "input-error" : ""}`}
-            placeholder="0x..."
-            value={buyer}
-            onChange={(e) => setBuyer(e.target.value)}
-          />
-          {buyerError && <p className="text-xs mt-1" style={{ color: "var(--color-danger)" }}>{buyerError}</p>}
-        </div>
+    <div className="max-w-xl mx-auto">
+      <PageHeader
+        title="Create invoice"
+        subtitle="You are the seller. The buyer confirms it and sets their own due date before anything is payable."
+      />
 
-        <div>
-          <label className="label mb-1 block">Amount (USDT)</label>
-          <input
-            className={`input tabular ${amountError ? "input-error" : ""}`}
-            type="text" inputMode="decimal"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-          {amountError && <p className="text-xs mt-1" style={{ color: "var(--color-danger)" }}>{amountError}</p>}
-        </div>
+      <div className="space-y-5">
+        <section className="card p-5 space-y-5">
+          <div>
+            <label htmlFor="buyer" className="label mb-1.5">
+              Buyer wallet address
+            </label>
+            <input
+              id="buyer"
+              className={`input font-mono ${buyerError ? "input-error" : ""}`}
+              placeholder="0x..."
+              autoComplete="off"
+              spellCheck={false}
+              value={buyer}
+              onChange={(e) => setBuyer(e.target.value.trim())}
+            />
+            {buyerError ? (
+              <p className="field-error mt-1">{buyerError}</p>
+            ) : (
+              <p className="field-hint mt-1">
+                The invoice is binding on this address only. Check it carefully, it cannot be changed.
+              </p>
+            )}
+          </div>
 
-        <div>
-          <label className="label mb-1 block">Description</label>
-          <textarea
-            className="input resize-none"
-            rows={3}
-            maxLength={280}
-            placeholder="What is this invoice for?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <p className="text-xs text-text-secondary mt-1 text-right tabular">{descLen}/280</p>
-        </div>
-
-        <div className="rounded-xl p-4 text-sm" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}>
-          <div className="label mb-2">Summary</div>
-          <div className="flex justify-between"><span className="text-text-secondary">To</span><span className="font-mono">{buyer || "-"}</span></div>
-          <div className="flex justify-between mt-1"><span className="text-text-secondary">Amount</span><span className="tabular">{amountNum > 0 ? `$${formatMoney(parseUnits(amount))}` : "-"}</span></div>
-          <div className="flex justify-between mt-1"><span className="text-text-secondary">Description</span><span className="truncate max-w-[60%] text-right">{description || "-"}</span></div>
-        </div>
-
-        <button
-          className="btn btn-primary w-full py-2.5"
-          disabled={!valid || txState === "pending"}
-          onClick={handleSubmit}
-        >
-          {txState === "pending" ? (
-            <span className="inline-block w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
-          ) : txState === "confirmed" ? (
-            <span className="text-background">Created</span>
-          ) : (
-            "Create Invoice"
+          {/* Counterparty risk, surfaced before submission. */}
+          {isAddress(buyer) && !buyerError && (
+            <div className="panel p-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="label">This buyer's record</p>
+                {buyerProfile.data?.trusted && <TrustedBadge small />}
+              </div>
+              {buyerProfile.isLoading ? (
+                <Skeleton className="h-14 w-full" />
+              ) : (
+                <>
+                  <CreditSummary profile={buyerProfile.data} size="sm" />
+                  {buyerProfile.data && buyerProfile.data.onTime === 0 && buyerProfile.data.defaults === 0 && (
+                    <p className="field-hint mt-2.5">
+                      No history on this platform yet. That is neither good nor bad, only unknown.
+                    </p>
+                  )}
+                  {(buyerProfile.data?.defaults ?? 0) > 0 && (
+                    <p className="field-error mt-2.5">
+                      This address has defaulted {buyerProfile.data.defaults} time
+                      {buyerProfile.data.defaults === 1 ? "" : "s"} before.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           )}
-        </button>
 
-        {txState === "error" && <p className="text-sm" style={{ color: "var(--color-danger)" }}>The transaction failed. Check the network and your USDT balance, then try again.</p>}
-        {txState === "confirmed" && txHash && <p className="text-xs text-text-secondary">Confirming. Redirecting to your invoice...</p>}
+          <div>
+            <label htmlFor="amount" className="label mb-1.5">
+              Amount, USDT
+            </label>
+            <input
+              id="amount"
+              className={`input tabular ${amountError ? "input-error" : ""}`}
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            {amountError ? (
+              <p className="field-error mt-1">{amountError}</p>
+            ) : (
+              <p className="field-hint mt-1">The full face value the buyer owes, before the platform fee.</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="description" className="label mb-1.5">
+              Description
+            </label>
+            <textarea
+              id="description"
+              className={`input ${descriptionError ? "input-error" : ""}`}
+              rows={3}
+              maxLength={MAX_DESCRIPTION}
+              placeholder="What is this invoice for?"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <div className="flex items-baseline justify-between mt-1">
+              <p className="field-hint">Stored publicly on-chain. Do not include private details.</p>
+              <p className="field-hint tabular flex-shrink-0">
+                {description.length}/{MAX_DESCRIPTION}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Live preview of exactly what gets submitted. */}
+        <section className="card p-5">
+          <p className="label mb-3">What will be submitted</p>
+          <dl className="space-y-2.5">
+            <div className="row">
+              <dt>Seller</dt>
+              <dd className="font-mono text-xs">{address}</dd>
+            </div>
+            <div className="row">
+              <dt>Buyer</dt>
+              <dd className="font-mono text-xs">{isAddress(buyer) ? buyer : "Not set"}</dd>
+            </div>
+            <div className="row">
+              <dt>Face value</dt>
+              <dd className="tabular font-medium">
+                {amountWei > 0n ? <Money value={amountWei} /> : "Not set"}
+              </dd>
+            </div>
+            <div className="row">
+              <dt>Platform fee at settlement</dt>
+              <dd className="tabular">{amountWei > 0n ? <Money value={fee} /> : "-"}</dd>
+            </div>
+            <div className="row">
+              <dt>You receive if paid directly</dt>
+              <dd className="tabular font-medium" style={{ color: amountWei > 0n ? "var(--color-primary)" : undefined }}>
+                {amountWei > 0n ? `$${formatMoneyFixed(amountWei - fee)}` : "-"}
+              </dd>
+            </div>
+            <div className="row">
+              <dt>Description</dt>
+              <dd className="text-xs">{description.trim() || "Not set"}</dd>
+            </div>
+            <div className="row">
+              <dt>Due date</dt>
+              <dd className="text-xs text-text-secondary">Chosen by the buyer at confirmation</dd>
+            </div>
+          </dl>
+        </section>
+
+        {!onCorrectNetwork && (
+          <Callout tone="warn" title="Wrong network">
+            You are connected to another chain. Switch to {ACTIVE_NETWORK.label} to submit.
+            <button className="btn btn-outline btn-sm mt-3" onClick={switchNetwork}>
+              Switch network
+            </button>
+          </Callout>
+        )}
+
+        <TxButton
+          size="lg"
+          state={tx.state}
+          disabled={!valid || !onCorrectNetwork}
+          onClick={() =>
+            tx.execute("Creating invoice", () =>
+              c.call("createInvoice", [buyer, amountWei, description.trim()])
+            )
+          }
+          pendingLabel="Creating"
+          confirmedLabel="Created, opening it now"
+        >
+          <Icon name="plus" size={15} />
+          Create invoice
+        </TxButton>
+
+        <p className="text-xs text-text-muted text-center leading-relaxed">
+          Creating an invoice costs only gas. No USDT moves until the buyer pays, or until you tokenize
+          it and an investor buys in.
+        </p>
       </div>
     </div>
   );

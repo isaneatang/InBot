@@ -1,94 +1,129 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
-import { formatMoney, relativeDue, truncateAddress } from "../lib/format";
-import StatusStepper from "./StatusStepper";
+import StatusStepper, { StatusChip } from "./StatusStepper";
 import TrustedBadge from "./TrustedBadge";
-import { useFactoryContract } from "../hooks/useInvoiceFactory";
-import { ACTIVE_NETWORK } from "../config/network";
+import { FundingMeter, Icon, Money } from "./ui";
+import { formatBps, relativeDue } from "../lib/format";
 
-function FundingBar({ invoice }) {
-  const sold = Number(invoice.totalSoldPercentageBps);
-  const pct = sold / 100;
-  return (
-    <div className="mt-3">
-      <div className="flex justify-between text-xs text-text-secondary mb-1">
-        <span>Funding</span>
-        <span className="tabular">{pct.toFixed(0)}% sold</span>
-      </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--color-surface-elevated)" }}>
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: "linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-strong) 100%)" }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        />
-      </div>
-    </div>
-  );
-}
+const URGENCY_COLOR = {
+  overdue: "var(--color-danger)",
+  urgent: "var(--color-accent-warn)",
+  soon: "var(--color-text-secondary)",
+  calm: "var(--color-text-secondary)",
+  none: "var(--color-text-muted)",
+};
 
-export default function InvoiceCard({ invoice, id }) {
-  const c = useFactoryContract();
+/**
+ * The single invoice card used by the dashboard, marketplace and profile grids.
+ *
+ * Which counterparty is surfaced depends on why the card is being shown. An investor
+ * browsing the marketplace is assessing whether the buyer will pay and whether the seller
+ * is credible, so both can be shown. A seller looking at their own list only needs the
+ * buyer.
+ */
+export default function InvoiceCard({
+  invoice,
+  id,
+  counterparty = "buyer",
+  profiles = {},
+  claimable,
+  footnote,
+}) {
   const status = Number(invoice.status);
-
-  const buyerName = useQuery({
-    queryKey: ["username", invoice.buyer],
-    queryFn: () => c.username(invoice.buyer),
-    enabled: !!invoice.buyer,
-  });
-
-  const buyerCredit = useQuery({
-    queryKey: ["credit", invoice.buyer],
-    queryFn: async () => {
-      const [onTime, late, def] = await Promise.all([
-        c.onTimePayments(invoice.buyer),
-        c.latePayments(invoice.buyer),
-        c.defaultCount(invoice.buyer),
-      ]);
-      return { onTime: Number(onTime), late: Number(late), def: Number(def) };
-    },
-    enabled: !!invoice.buyer,
-  });
-
-  const trusted =
-    !!buyerCredit.data &&
-    buyerCredit.data.onTime >= 5 &&
-    buyerCredit.data.def === 0;
-
+  const wasTokenized = Number(invoice.discountBps) > 0;
   const due = relativeDue(invoice.dueDate);
 
+  const buyerProfile = profiles[invoice.buyer?.toLowerCase()];
+  const sellerProfile = profiles[invoice.seller?.toLowerCase()];
+
+  const remainingBps = 10000 - Number(invoice.totalSoldPercentageBps);
+  const remainingValue =
+    (BigInt(invoice.faceValue) * BigInt(remainingBps) * BigInt(invoice.discountBps || 0n)) / 100000000n;
+
+  const parties = [];
+  if (counterparty === "buyer" || counterparty === "both") {
+    parties.push({ role: "Buyer", address: invoice.buyer, profile: buyerProfile });
+  }
+  if (counterparty === "seller" || counterparty === "both") {
+    parties.push({ role: "Seller", address: invoice.seller, profile: sellerProfile });
+  }
+
   return (
-    <motion.div whileHover={{ y: -3, scale: 1.01 }} transition={{ duration: 0.18, ease: "easeOut" }}>
+    <motion.div layout transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
       <Link
         to={`/invoice/${id}`}
-        className="card p-4 block hover:border-primary transition-all"
+        className="card card-interactive p-4 flex flex-col h-full"
+        aria-label={`Invoice ${id}`}
       >
-        <div className="flex justify-between items-center mb-3">
-          <span className="font-mono text-xs text-text-secondary">#{id}</span>
-          <StatusStepper invoice={invoice} compact />
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span className="font-mono text-xs text-text-muted">#{id}</span>
+          <div className="flex items-center gap-2">
+            <StatusStepper invoice={invoice} compact />
+            <StatusChip status={status} />
+          </div>
         </div>
 
-        <div className="text-2xl font-semibold tabular mb-1">
-          ${formatMoney(invoice.faceValue)}
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-2xl font-semibold tracking-tight">
+            <Money value={invoice.faceValue} />
+          </span>
+          {wasTokenized && (
+            <span className="chip chip-neutral">{formatBps(invoice.discountBps)} of face</span>
+          )}
+          {Number(invoice.stakedAmount) > 0 && (
+            <span className="chip chip-primary" title="The seller posted a first-loss stake on this invoice">
+              <Icon name="coins" size={10} strokeWidth={2.5} />
+              Staked
+            </span>
+          )}
         </div>
-        <p className="text-sm text-text-secondary truncate mb-3">{invoice.description || "No description"}</p>
 
-        {(status === 2 || status === 3 || status === 4) && invoice.discountBps > 0 && (
-          <FundingBar invoice={invoice} />
+        <p className="text-sm text-text-secondary mt-1.5 line-clamp-2 min-h-[2.5rem]">
+          {invoice.description || "No description provided"}
+        </p>
+
+        {wasTokenized && status === 2 && (
+          <div className="mt-3">
+            <FundingMeter soldBps={invoice.totalSoldPercentageBps} remaining={remainingValue} />
+          </div>
+        )}
+        {wasTokenized && status !== 2 && (
+          <div className="mt-3">
+            <FundingMeter soldBps={invoice.totalSoldPercentageBps} label="Sold to investors" />
+          </div>
         )}
 
-        <div className="flex justify-between items-center mt-4">
-          <span
-            className="text-xs"
-            style={{ color: due.overdue ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+        {claimable !== undefined && claimable > 0n && (
+          <div
+            className="mt-3 panel px-3 py-2 flex items-center justify-between"
+            style={{ borderColor: "color-mix(in srgb, var(--color-primary) 30%, transparent)" }}
           >
-            {due.label}
-          </span>
-          <div className="flex items-center gap-2">
-            {trusted && <TrustedBadge small />}
-            <span className="font-mono text-xs text-text-secondary">{truncateAddress(invoice.buyer)}</span>
+            <span className="text-xs text-text-secondary">Claimable now</span>
+            <span className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
+              <Money value={claimable} />
+            </span>
+          </div>
+        )}
+
+        <div className="mt-auto pt-4 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs" style={{ color: URGENCY_COLOR[due.urgency] }}>
+              <Icon name={due.overdue ? "alert" : "clock"} size={11} />
+              <span className="truncate">{due.label}</span>
+            </div>
+            {footnote && <p className="text-xs text-text-muted mt-1 truncate">{footnote}</p>}
+          </div>
+
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {parties.map((p) => (
+              <div key={p.role} className="flex items-center gap-1.5">
+                {p.profile?.trusted && <TrustedBadge small asLink={false} />}
+                <span className="text-xs text-text-muted">{p.role}</span>
+                <span className={`text-xs ${p.profile?.username ? "" : "font-mono"} text-text-secondary`}>
+                  {p.profile?.username || `${p.address.slice(0, 6)}...${p.address.slice(-4)}`}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </Link>

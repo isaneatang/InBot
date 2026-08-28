@@ -46,7 +46,7 @@ export const ACTIVE_NETWORK_KEY = "testnet";
 export const ACTIVE_NETWORK = NETWORKS[ACTIVE_NETWORK_KEY];
 
 // Updated with the deployed contract address after deployment (see steps.txt).
-export const INVOICE_FACTORY_ADDRESS = "0x04c168f01e749ce16b274e9bea22c5ddc2c3e6a2";
+export const INVOICE_FACTORY_ADDRESS = "0x1e6c1FD4a91Eefd68b22d70574d263FBe617a7be";
 
 export const USDT_DECIMALS = 6;
 export const PLATFORM_FEE_BPS = 50;

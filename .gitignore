@@ -30,3 +30,5 @@ frontend/.env.local
 # Logs
 *.log
 npm-debug.log*
+# Screenshots produced by frontend/verify-browser.mjs
+frontend/verify-shots/

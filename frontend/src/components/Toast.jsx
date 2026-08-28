@@ -1,69 +1,133 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Icon, MOTION } from "./ui";
+import { explorerTxUrl } from "../lib/format";
 
 const ToastContext = createContext(null);
+
+const TONES = {
+  success: { color: "var(--color-primary)", icon: "check" },
+  error: { color: "var(--color-danger)", icon: "alert" },
+  pending: { color: "var(--color-accent-warn)", icon: "clock" },
+  info: { color: "var(--color-text-secondary)", icon: "activity" },
+};
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
+  const timers = useRef(new Map());
 
   const dismiss = useCallback((id) => {
-    setToasts((t) => t.filter((x) => x.id !== id));
+    const timer = timers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timers.current.delete(id);
+    }
+    setToasts((list) => list.filter((t) => t.id !== id));
   }, []);
 
-  const push = useCallback(
-    (message, kind = "info") => {
-      const id = ++idRef.current;
-      setToasts((t) => [...t, { id, message, kind }]);
-      if (kind !== "error") {
-        setTimeout(() => dismiss(id), 4000);
-      }
-      return id;
+  /**
+   * Errors stay until dismissed. A financial error message that vanishes after four
+   * seconds is worse than no message at all, because the user knows something went wrong
+   * but not what.
+   */
+  const schedule = useCallback(
+    (id, kind) => {
+      if (kind === "error" || kind === "pending") return;
+      timers.current.set(
+        id,
+        setTimeout(() => dismiss(id), 4000)
+      );
     },
     [dismiss]
   );
 
+  const push = useCallback(
+    (message, kind = "info", options = {}) => {
+      const id = ++idRef.current;
+      setToasts((list) => [...list, { id, message, kind, ...options }]);
+      schedule(id, kind);
+      return id;
+    },
+    [schedule]
+  );
+
+  /** Replaces an existing toast in place, used to move pending to confirmed. */
+  const update = useCallback(
+    (id, message, kind, options = {}) => {
+      const timer = timers.current.get(id);
+      if (timer) {
+        clearTimeout(timer);
+        timers.current.delete(id);
+      }
+      setToasts((list) => list.map((t) => (t.id === id ? { ...t, message, kind, ...options } : t)));
+      schedule(id, kind);
+    },
+    [schedule]
+  );
+
+  const value = useMemo(() => ({ push, update, dismiss }), [push, update, dismiss]);
+
   return (
-    <ToastContext.Provider value={{ push, dismiss }}>
+    <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 items-end">
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, x: 40, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 40, scale: 0.95 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="max-w-sm rounded-xl px-4 py-3 text-sm"
-              style={{
-                background:
-                  t.kind === "error"
-                    ? "linear-gradient(135deg, #d44c44 0%, #b83e38 100%)"
-                    : t.kind === "success"
-                    ? "linear-gradient(135deg, #5cb870 0%, #4a9e5e 100%)"
-                    : "linear-gradient(145deg, #1a1e18 0%, #111310 100%)",
-                color: t.kind === "error" || t.kind === "success" ? "#0a0c08" : "var(--color-text-primary)",
-                border: t.kind === "info" ? "1px solid var(--color-border)" : "none",
-                boxShadow:
-                  t.kind === "error"
-                    ? "0 8px 24px rgba(212,76,68,0.3)"
-                    : t.kind === "success"
-                    ? "0 8px 24px rgba(92,184,112,0.3)"
-                    : "0 8px 24px rgba(0,0,0,0.4)",
-              }}
-            >
-              {t.kind === "error" && (
-                <button onClick={() => dismiss(t.id)} className="float-right ml-4 font-bold opacity-60 hover:opacity-100 transition-opacity">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+      <div
+        className="fixed z-[80] flex flex-col gap-2 pointer-events-none
+                   top-[calc(env(safe-area-inset-top,0px)+0.75rem)] left-3 right-3
+                   sm:left-auto sm:right-4 sm:top-4 sm:w-[22rem]"
+        role="status"
+        aria-live="polite"
+      >
+        <AnimatePresence initial={false}>
+          {toasts.map((t) => {
+            const tone = TONES[t.kind] || TONES.info;
+            return (
+              <motion.div
+                key={t.id}
+                layout
+                initial={{ opacity: 0, y: -12, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 24, scale: 0.97 }}
+                transition={MOTION.toast}
+                className="card p-3 pointer-events-auto flex items-start gap-2.5"
+                style={{
+                  background: "var(--color-surface-elevated)",
+                  borderColor: `color-mix(in srgb, ${tone.color} 34%, var(--color-border))`,
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
+                }}
+              >
+                <span
+                  className={`flex-shrink-0 mt-px ${t.kind === "pending" ? "pending-pulse" : ""}`}
+                  style={{ color: tone.color }}
+                >
+                  <Icon name={tone.icon} size={15} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm leading-snug break-words">{t.message}</p>
+                  {t.hash && (
+                    <a
+                      href={explorerTxUrl(t.hash)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-xs font-mono mt-1.5 inline-flex items-center gap-1 hover:text-primary transition-colors"
+                      style={{ color: "var(--color-text-secondary)" }}
+                    >
+                      {t.hash.slice(0, 10)}...{t.hash.slice(-8)}
+                      <Icon name="external" size={10} />
+                    </a>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => dismiss(t.id)}
+                  aria-label="Dismiss"
+                  className="flex-shrink-0 -mt-0.5 -mr-0.5 p-1 rounded text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <Icon name="x" size={13} />
                 </button>
-              )}
-              {t.message}
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
     </ToastContext.Provider>
@@ -71,5 +135,7 @@ export function ToastProvider({ children }) {
 }
 
 export function useToast() {
-  return useContext(ToastContext);
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error("useToast must be used inside ToastProvider");
+  return ctx;
 }

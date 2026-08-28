@@ -1,20 +1,32 @@
-export default function TrustedBadge({ small = false }) {
-  return (
+import { Link } from "react-router-dom";
+import { Icon } from "./ui";
+import { TRUSTED_MIN_REPAID, TRUSTED_MAX_DEFAULTS } from "../config/network";
+
+const EXPLANATION =
+  `Trusted is granted automatically by the contract after at least ${TRUSTED_MIN_REPAID} on-time repayments ` +
+  `with no more than ${TRUSTED_MAX_DEFAULTS} defaults. No person can grant or remove it.`;
+
+/**
+ * The Trusted badge. Always links to the documentation section that defines the criteria,
+ * so the signal is never left unexplained.
+ */
+export default function TrustedBadge({ small = false, asLink = true }) {
+  const content = (
     <span
-      className={`inline-flex items-center gap-1 rounded-full ${
-        small ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs"
-      }`}
-      style={{
-        background: "rgba(92,184,112,0.12)",
-        border: "1px solid rgba(92,184,112,0.3)",
-        color: "var(--color-primary)",
-      }}
-      title="Trusted: earned automatically after at least 5 on-time repayments and no defaults. See Documentation."
+      className="chip chip-primary"
+      style={small ? { fontSize: "0.625rem", padding: "0.125rem 0.4375rem" } : undefined}
+      title={EXPLANATION}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <Icon name="check" size={small ? 9 : 11} strokeWidth={3} />
       Trusted
     </span>
+  );
+
+  if (!asLink) return content;
+
+  return (
+    <Link to="/docs#trusted" aria-label={EXPLANATION} className="inline-flex">
+      {content}
+    </Link>
   );
 }

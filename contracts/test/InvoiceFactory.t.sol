@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console, Vm} from "forge-std/Test.sol";
 import {InvoiceFactory} from "../src/InvoiceFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -73,30 +73,12 @@ contract InvoiceFactoryTest is Test {
         return (faceValue * FEE_BPS) / 10000;
     }
 
-    function _inv(uint256 id) internal view returns (
-        address,
-        address,
-        uint256,
-        string memory,
-        uint256,
-        InvoiceFactory.InvoiceStatus,
-        uint256,
-        uint256,
-        uint256,
-        uint256,
-        uint256,
-        bool,
-        uint256,
-        bool,
-        uint256,
-        uint256
-    ) {
-        return factory.invoices(id);
+    function _inv(uint256 id) internal view returns (InvoiceFactory.Invoice memory) {
+        return factory.getInvoice(id);
     }
 
     function _status(uint256 id) internal view returns (InvoiceFactory.InvoiceStatus) {
-        (,,,,, InvoiceFactory.InvoiceStatus st,,,,,,,,,,) = _inv(id);
-        return st;
+        return factory.getInvoice(id).status;
     }
 
     function _tokenize(uint256 id, uint256 discountBps, uint256 stakeAmount) internal {
@@ -129,8 +111,7 @@ contract InvoiceFactoryTest is Test {
         assertEq(usdt.balanceOf(address(factory)), 0, "nothing left");
 
         assertEq(uint256(_status(id)), uint256(InvoiceFactory.InvoiceStatus.Repaid));
-        (,,,,,,,,,,,, uint256 repaidAmount,,,) = _inv(id);
-        assertEq(repaidAmount, faceValue - _fee(faceValue));
+        assertEq(_inv(id).repaidAmount, faceValue - _fee(faceValue));
     }
 
     /* ================= Scenario 2: Full subscription + full repayment ================= */
@@ -151,8 +132,7 @@ contract InvoiceFactoryTest is Test {
 
         // investor paid 85% of face, seller received it up front
         assertEq(usdt.balanceOf(seller), sellerAfterInvest + fullCost, "seller got discounted proceeds");
-        (,,,,,,,, uint256 soldBps,,,,,,,) = _inv(id);
-        assertEq(soldBps, 10000, "fully sold");
+        assertEq(_inv(id).totalSoldPercentageBps, 10000, "fully sold");
 
         uint256 net = faceValue - _fee(faceValue);
         uint256 invABefore = usdt.balanceOf(invA);
@@ -190,8 +170,7 @@ contract InvoiceFactoryTest is Test {
         vm.prank(invA);
         factory.invest(id, investCost);
 
-        (,,,,,,,, uint256 soldBps2,,,,,,,) = _inv(id);
-        assertEq(soldBps2, 6000, "60% sold");
+        assertEq(_inv(id).totalSoldPercentageBps, 6000, "60% sold");
 
         uint256 sellerPre = usdt.balanceOf(seller);
         uint256 net = faceValue - _fee(faceValue);
@@ -266,8 +245,7 @@ contract InvoiceFactoryTest is Test {
 
         assertEq(uint256(_status(id)), uint256(InvoiceFactory.InvoiceStatus.Defaulted));
         assertEq(factory.defaultCount(buyer), 1);
-        (,,,,,,,,,,,, uint256 repaidNoStake,,,) = _inv(id);
-        assertEq(repaidNoStake, 0, "nothing available");
+        assertEq(_inv(id).repaidAmount, 0, "nothing available");
 
         vm.prank(invA);
         vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.NoStakeToClaim.selector));
@@ -297,10 +275,8 @@ contract InvoiceFactoryTest is Test {
         vm.warp(block.timestamp + 31 days);
         factory.markDefault(id);
 
-        (,,,,,,,,,, uint256 pool,,,,,) = _inv(id);
-        assertEq(pool, stake, "stake becomes claimable pool");
-        (,,,,,,,,,,, bool consumed,,,,) = _inv(id);
-        assertEq(consumed, true);
+        assertEq(_inv(id).repaidAmount, stake, "stake becomes the claimable pool");
+        assertEq(_inv(id).stakeConsumed, true);
 
         // investors split the stake proportionally
         uint256 invABefore = usdt.balanceOf(invA);
@@ -536,5 +512,239 @@ contract InvoiceFactoryTest is Test {
         vm.prank(invB);
         vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.ExceedsAvailablePercentage.selector, 1, 0));
         factory.invest(id, 1e6);
+    }
+
+    /* ================= Partially sold default: investors get the whole stake ================= */
+
+    function test_PartialSaleDefaultGivesInvestorsEntireStake() public {
+        uint256 faceValue = 10_000e6;
+        uint256 id = _newInvoice(faceValue);
+        _confirm(id, block.timestamp + 30 days);
+        uint256 stake = 3000e6;
+        _tokenize(id, 8500, stake);
+
+        // Only 40 percent of the invoice is sold, split 30/10 between two investors.
+        uint256 costA = (faceValue * 3000 / 10000 * 8500) / 10000;
+        uint256 costB = (faceValue * 1000 / 10000 * 8500) / 10000;
+        vm.prank(invA); factory.invest(id, costA);
+        vm.prank(invB); factory.invest(id, costB);
+        assertEq(_inv(id).totalSoldPercentageBps, 4000, "40% sold");
+
+        vm.warp(block.timestamp + 31 days);
+        factory.markDefault(id);
+
+        InvoiceFactory.Invoice memory rec = _inv(id);
+        assertEq(rec.stakeConsumed, true, "stake consumed");
+        assertEq(rec.distributionBasisBps, 4000, "basis is the sold percentage, not 10000");
+
+        uint256 aBefore = usdt.balanceOf(invA);
+        uint256 bBefore = usdt.balanceOf(invB);
+        vm.prank(invA); factory.claimInvestorShare(id);
+        vm.prank(invB); factory.claimInvestorShare(id);
+
+        // The whole stake is shared between the investors 3:1, not scaled down to 40 percent.
+        assertEq(usdt.balanceOf(invA) - aBefore, stake * 3000 / 4000, "investor A gets 3/4 of the stake");
+        assertEq(usdt.balanceOf(invB) - bBefore, stake * 1000 / 4000, "investor B gets 1/4 of the stake");
+        assertEq(
+            (usdt.balanceOf(invA) - aBefore) + (usdt.balanceOf(invB) - bBefore),
+            stake,
+            "entire stake reaches investors"
+        );
+
+        // The seller gets nothing back: the stake was fully spent protecting investors.
+        vm.prank(seller);
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.NoSellerShare.selector));
+        factory.claimSellerShare(id);
+
+        factory.sweepDust(id);
+        assertEq(usdt.balanceOf(address(factory)), 0, "nothing left for the platform to sweep");
+    }
+
+    /* ================= Default with a stake but no investors: stake returns ================= */
+
+    function test_DefaultWithStakeNoInvestorsReturnsStakeToSeller() public {
+        uint256 id = _newInvoice(10_000e6);
+        _confirm(id, block.timestamp + 30 days);
+        uint256 stake = 2500e6;
+        uint256 sellerBefore = usdt.balanceOf(seller);
+        _tokenize(id, 8500, stake);
+        assertEq(usdt.balanceOf(seller), sellerBefore - stake, "stake locked");
+
+        // Nobody invests, then the buyer defaults.
+        vm.warp(block.timestamp + 31 days);
+        factory.markDefault(id);
+
+        // With no investors to protect, the stake was never consumed.
+        InvoiceFactory.Invoice memory rec = _inv(id);
+        assertEq(rec.stakeConsumed, false, "stake not consumed when nobody invested");
+        assertEq(factory.claimableSellerShare(id), stake, "stake is quoted as claimable");
+
+        vm.prank(seller);
+        factory.claimSellerShare(id);
+        assertEq(usdt.balanceOf(seller), sellerBefore, "seller made whole on their own stake");
+
+        vm.prank(seller);
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.AlreadyClaimed.selector));
+        factory.claimSellerShare(id);
+
+        factory.sweepDust(id);
+        assertEq(usdt.balanceOf(address(factory)), 0, "nothing stuck");
+    }
+
+    /* ================= Trusted badge is granted exactly once ================= */
+
+    function test_TrustedGrantedOnceAndFlagSet() public {
+        uint256 due = block.timestamp + 30 days;
+        for (uint256 i = 0; i < 6; i++) {
+            uint256 id = _newInvoice(100e6);
+            vm.prank(buyer);
+            factory.confirmInvoice(id, due);
+        }
+        vm.warp(due - 100);
+
+        assertEq(factory.isTrusted(buyer), false, "not trusted before the threshold");
+
+        // The fifth on-time payment crosses the threshold and must emit exactly once.
+        for (uint256 i = 0; i < 4; i++) {
+            vm.prank(buyer);
+            factory.payDirect(i);
+        }
+        assertEq(factory.isTrusted(buyer), false, "four payments is not enough");
+
+        vm.expectEmit(true, false, false, false, address(factory));
+        emit InvoiceFactory.TrustedStatusGranted(buyer, block.timestamp);
+        vm.prank(buyer);
+        factory.payDirect(4);
+        assertEq(factory.isTrusted(buyer), true, "granted on the fifth payment");
+
+        // A sixth payment must not re-emit the grant.
+        vm.recordLogs();
+        vm.prank(buyer);
+        factory.payDirect(5);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 grantTopic = keccak256("TrustedStatusGranted(address,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(logs[i].topics[0] != grantTopic, "grant must not be emitted twice");
+        }
+    }
+
+    /* ================= sweepDust guards ================= */
+
+    function test_SweepDustRevertsWhileClaimsOutstanding() public {
+        uint256 faceValue = 10_000e6;
+        uint256 id = _newInvoice(faceValue);
+        _confirm(id, block.timestamp + 30 days);
+        _tokenize(id, 9000, 0);
+
+        uint256 cost = (faceValue * 5000 / 10000 * 9000) / 10000;
+        vm.prank(invA); factory.invest(id, cost);
+
+        vm.prank(buyer);
+        factory.repayTokenized(id);
+
+        // One investor plus the seller are expected to claim, neither has yet.
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.ClaimsPending.selector, 0, 2));
+        factory.sweepDust(id);
+
+        vm.prank(invA); factory.claimInvestorShare(id);
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.ClaimsPending.selector, 1, 2));
+        factory.sweepDust(id);
+
+        vm.prank(seller); factory.claimSellerShare(id);
+        factory.sweepDust(id);
+        assertEq(usdt.balanceOf(address(factory)), 0, "settled and empty");
+    }
+
+    function test_SweepDustRejectsUnsettledInvoice() public {
+        uint256 id = _newInvoice(1000e6);
+        _confirm(id, block.timestamp + 30 days);
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.InvalidStatus.selector));
+        factory.sweepDust(id);
+    }
+
+    /* ================= Repaid invoice with a stake leaves nothing behind ================= */
+
+    function test_RepaidWithStakeFullyDrains() public {
+        uint256 faceValue = 100_003e6;
+        uint256 id = _newInvoice(faceValue);
+        _confirm(id, block.timestamp + 30 days);
+        uint256 stake = 7777e6;
+        _tokenize(id, 7300, stake);
+
+        uint256 costEach = (faceValue * 3300 / 10000 * 7300) / 10000;
+        vm.prank(invA); factory.invest(id, costEach);
+        vm.prank(invB); factory.invest(id, costEach);
+        vm.prank(invC); factory.invest(id, costEach);
+
+        vm.prank(buyer);
+        factory.repayTokenized(id);
+
+        vm.prank(invA); factory.claimInvestorShare(id);
+        vm.prank(invB); factory.claimInvestorShare(id);
+        vm.prank(invC); factory.claimInvestorShare(id);
+        vm.prank(seller); factory.claimSellerShare(id);
+
+        // The pool covered the net repayment and the returned stake, so the only remainder
+        // is truncation dust and the contract ends completely empty.
+        assertLe(factory.sweepableDust(id), 4, "dust is at most one unit per claim");
+        factory.sweepDust(id);
+        assertEq(usdt.balanceOf(address(factory)), 0, "contract fully empty");
+    }
+
+    /* ================= View helpers ================= */
+
+    function test_ViewHelpers() public {
+        uint256 faceValue = 10_000e6;
+        uint256 id = _newInvoice(faceValue);
+        _confirm(id, block.timestamp + 30 days);
+        _tokenize(id, 8000, 500e6);
+
+        // quoteInvestment mirrors the math that invest actually applies.
+        uint256 amount = 1600e6; // 20% of face at an 80% discount
+        uint256 quoted = factory.quoteInvestment(id, amount);
+        assertEq(quoted, 2000, "quote is 20% of face value");
+
+        vm.prank(invA);
+        factory.invest(id, amount);
+        assertEq(factory.investorPercentageBps(id, invA), quoted, "recorded percentage matches the quote");
+
+        assertEq(factory.investorCount(id), 1, "one investor");
+        address[] memory investors = factory.getInvestors(id);
+        assertEq(investors.length, 1);
+        assertEq(investors[0], invA);
+
+        // Paging returns the whole book and clamps past the end.
+        _newInvoice(500e6);
+        assertEq(factory.getInvoices(0, 10).length, 2, "page clamps to the book size");
+        assertEq(factory.getInvoices(1, 10).length, 1, "offset respected");
+        assertEq(factory.getInvoices(5, 10).length, 0, "offset past the end is empty");
+
+        // Claimables are zero before settlement and never revert.
+        assertEq(factory.claimableInvestorShare(id, invA), 0, "nothing claimable yet");
+        assertEq(factory.claimableSellerShare(id), 0, "nothing claimable yet");
+        assertEq(factory.claimableInvestorShare(999, invA), 0, "unknown invoice returns zero");
+
+        vm.prank(buyer);
+        factory.repayTokenized(id);
+
+        uint256 net = faceValue - _fee(faceValue);
+        assertEq(factory.claimableInvestorShare(id, invA), net * 2000 / 10000, "investor quoted 20%");
+        assertEq(factory.claimableSellerShare(id), (net * 8000 / 10000) + 500e6, "seller quoted 80% plus stake");
+
+        // getCreditProfile aggregates identity and history in one call.
+        vm.prank(buyer);
+        factory.claimUsername("buyer-one");
+        (string memory name, uint256 onTime, uint256 late, uint256 defaults, bool trusted) =
+            factory.getCreditProfile(buyer);
+        assertEq(name, "buyer-one");
+        assertEq(onTime, 1);
+        assertEq(late, 0);
+        assertEq(defaults, 0);
+        assertEq(trusted, false);
+    }
+
+    function test_GetInvoiceRejectsUnknownId() public {
+        vm.expectRevert(abi.encodeWithSelector(InvoiceFactory.InvalidInvoice.selector));
+        factory.getInvoice(0);
     }
 }
